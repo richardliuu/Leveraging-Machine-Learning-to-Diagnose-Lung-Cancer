@@ -2,17 +2,10 @@
 
 - Machine Learning
 
-Auditory Applications
-- using it to help pianists/musicians improve technique or get input
-
-
-Computer Vision Applications
-- helping athletes monitor their technique and optimize mechanics 
+- Stack multiple layers to help filter out specific features and increase accuracy
+- Can be done through implementing multiple types of neural networks and such
 
 
 Main Limitations
-- Trying to find a training dataset or creating my own
+- Trying to find a training dataset and learning how to add multiple layers 
 
-
-
-will be turned into an instructions/how to use/how to download
