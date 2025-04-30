@@ -1,4 +1,4 @@
-# Brainstorm
+# Leveraging Machine Learning to Diagnose Lung Cancer through Audio Classification
 
 - Machine Learning
 
