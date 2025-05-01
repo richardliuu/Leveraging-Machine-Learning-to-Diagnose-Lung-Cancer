@@ -9,3 +9,5 @@
 Main Limitations
 - Trying to find a training dataset and learning how to add multiple layers 
 
+- need to do research on how to stack multiple layers
+
