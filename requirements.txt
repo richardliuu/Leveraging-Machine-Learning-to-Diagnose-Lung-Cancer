@@ -3,3 +3,5 @@ pandas
 numpy
 scikit-learn
 librosa
+python_speech_features
+tqdm
