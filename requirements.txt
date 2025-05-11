@@ -8,3 +8,4 @@ tqdm
 tensorflow
 pydub
 noisereduce
+imbalanced-learn
