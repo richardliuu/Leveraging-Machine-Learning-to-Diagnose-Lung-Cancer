@@ -1,235 +1,133 @@
-import os 
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import pandas as pd
+import os
 import numpy as np
-from scipy.io import wavfile
 import librosa
-from python_speech_features import mfcc, logfbank 
-import warnings 
+import scipy.signal
+import soundfile as sf
+import noisereduce as nr
+import matplotlib.pyplot as plt
+import librosa.display
 
-# Checking out how I can plot data 
+def load_audio(path, target_sr=16000):
+    y, sr = librosa.load(path, sr=target_sr, mono=True)
+    return y, sr
 
-def plot_signals(signals):
-    fig, axes = plt.subplots(nrows=2, ncols=5, sharex=False, sharey=True, figsize=(20,5)),
+def save_wav_file(y, sr, out_path):
+    sf.write(out_path, y, sr, format='WAV')
 
-    fig.suptitle('Time Series', size=16)
-    i = 0
-    for x in range(2):
-        for y in range(5):
-            axes[x,y].set_title(list(signals.keys())[i])
-            axes[x,y].plot(list(signals.values())[i])
-            axes[x,y].get_xaxis().set_visible(False)
-            axes[x,y].get_yaxis().set_visible(False)
-            i += 1
-
-# Fast Fourier Transform 
-def plot_fft(fft):
-    fig, axes= plt.subplots(nrows=2, ncols=5, sharex=False, sharey=True, figsize=(20,5))
-
-    fig.suptitle('Fourier Transform', size=16)
-    i = 0 
-    for x in range(2):
-        for y in range(5):
-            data = list(fft.values())[i]
-            Y, freq = data[0], data[1]
-            axes[x,y].set_title(list(fft.keys())[i])
-            axes[x,y].plot(freq, Y)
-            axes[x,y].get_xaxis().set_visible(False)
-            axes[x,y].get_yaxis().set_visible(False)
-            i += 1
-
-def plot_fbank(fbank):
-    fig, axes = plt.subplots(nrows=2, ncols=5, sharex=False, sharey=True, figsize=(20, 5))
-    fig.suptitle("Filter Bank Coefficients", size=16)
-    i=0
-    for x in range(2):
-        for y in range(5):
-            axes[x,y].set_title(list(fbank.keys())[i])
-            axes[x,y].imshow(list(fbank.values())[i],
-                             cmap='hot', interpolations='nearest')
-            axes[x,y].get_xaxis().set_visible(False)
-            axes[x,y].get_yaxis().set_visible(False)
-            i += 1
-
-# Mel frequency cepstral coefficients 
-def plot_mfccs(mfccs):
-    fig, axes = plt.subplots(nrows=2, ncols=5, sharex=False, sharey=False, figsize=(20,5))
-    
-    fig.suptitle("Mel Frequency Cepstral Coefficients", size=16)
-    i=0
-    for x in range(2):
-        for y in range(5):
-            axes[x,y].set_title(list(mfccs.keys())[i])
-            axes[x,y].imshow(list(mfccs.values())[i],
-                             cmap='hot', interpolations='nearest')
-            axes[x,y].get_xaxis().set_visible(False)
-            axes[x,y].get_yaxis().set_visible(False)
-            i += 1
-
-warnings.filterwarnings("ignore", category=wavfile.WavFileWarning)
-
-
-
-def process_dataset(csv_path, wav_folder_healthy, output_path):
-    """
-    Process lung sound dataset by reading wav files and calculating their lengths.
-    
-    Parameters:
-    -----------
-    csv_path : str
-        Path to the CSV file with lung dataset
-    wav_folder_healthy : str
-        Path to the folder containing healthy wav files
-    wav_folder_unhealthy : str, optional
-        Path to the folder containing unhealthy wav files
-    output_path : str, optional
-        Path where to save the output CSV file
-    
-    Returns:
-    --------
-    pd.DataFrame
-        Updated DataFrame with audio lengths
-    dict
-        Dictionary with statistics about processing
-    """
-    # Load the dataset
-    try:
-        df = pd.read_csv(csv_path)
-        print(f"Successfully loaded dataset with {len(df)} records")
-    except Exception as e:
-        print(f"Error loading dataset: {e}")
-        return None, None
-    
-    # Set subject number as index if it exists
-    if 'SUBJ. NO' in df.columns:
-        df.set_index('SUBJ. NO', inplace=True)
-        print("Set 'SUBJ. NO' as index")
-    
-    # Add length column if it doesn't exist
-    if 'length' not in df.columns:
-        df['length'] = np.nan
-    
-    # Statistics dictionary
-    stats = {
-        'total_files': len(df),
-        'processed_files': 0,
-        'missing_files': [],
-        'error_files': []
-    }
-    
-    # Process healthy files
-    if wav_folder_healthy:
-        stats_healthy = process_wav_files(df, wav_folder_healthy, 'h')
-        stats['processed_files'] += stats_healthy['processed']
-        stats['missing_files'].extend(stats_healthy['missing'])
-        stats['error_files'].extend(stats_healthy['errors'])
-
-    # Save updated DataFrame if output path is provided
-    if output_path:
-        try:
-            df.to_csv(output_path)
-            print(f"Updated DataFrame saved to {output_path}")
-        except Exception as e:
-            print(f"Error saving DataFrame: {e}")
-    
-    # Print processing summary
-    print(f"\nProcessing summary:")
-    print(f"  Total files in dataset: {stats['total_files']}")
-    print(f"  Successfully processed: {stats['processed_files']}")
-    print(f"  Missing files: {len(stats['missing_files'])}")
-    print(f"  Files with errors: {len(stats['error_files'])}")
-    
-    # Save missing files list
-    if stats['missing_files']:
-        try:
-            with open("missing_files.txt", "w") as f:
-                for file in stats['missing_files']:
-                    f.write(file + "\n")
-            print(f"List of missing files saved to 'missing_files.txt'")
-        except Exception as e:
-            print(f"Error saving missing files list: {e}")
-    
-    return df, stats
-
-
-def process_wav_files(df, wav_folder, file_suffix):
-    """
-    Process wav files in a folder and update DataFrame with lengths.
-    
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        DataFrame to update
-    wav_folder : str
-        Folder containing wav files
-    file_suffix : str
-        Suffix for file names ('h' for healthy, 'u' for unhealthy)
-    
-    Returns:
-    --------
-    dict
-        Statistics about processing
-    """
-    results = {'processed': 0, 'missing': [], 'errors': []}
-    
-    print(f"\nProcessing files in {wav_folder} with suffix '{file_suffix}'...")
-    
-    # Ensure the wav folder exists
-    if not os.path.exists(wav_folder):
-        print(f"Warning: Folder {wav_folder} does not exist")
-        return results
-    
-    # Loop through subjects in the dataset
-    for subject_id in df.index:
-        file_name = f'{subject_id}- {file_suffix}.wav'
-        file_path = os.path.join(wav_folder, file_name)
-        
-        # Handle file processing
-        if os.path.exists(file_path):
-            try:
-                rate, signal = wavfile.read(file_path)
-                
-                # Calculate length in seconds
-                duration = signal.shape[0] / rate
-                
-                # Also update the general 'length' column for backward compatibility
-                df.at[subject_id, 'length'] = duration
-                
-                results['processed'] += 1
-                
-                # Print progress every 10 files
-                if results['processed'] % 10 == 0:
-                    print(f"  Processed {results['processed']} files so far...")
-                
-            except Exception as e:
-                error_msg = f"Error reading {file_path}: {e}"
-                print(f"  {error_msg}")
-                results['errors'].append((file_name, str(e)))
-        else:
-            results['missing'].append(file_name)
-    
-    print(f"Done processing {file_suffix} files: {results['processed']} processed, "
-          f"{len(results['missing'])} missing, {len(results['errors'])} errors")
-    
-    return results
-
-
-if __name__ == "__main__":
-    # Configuration
-    csv_path = "C:/Users/richa/Downloads/lung_dataset_healthy.csv"
-    wav_folder_healthy = "wavfiles/healthy" 
-    output_path = "C:/Users/richa/Downloads/lung_dataset_healthy_table.csv"
-    
-    # Process the dataset
-    updated_df, stats = process_dataset(
-        csv_path=csv_path,
-        wav_folder_healthy=wav_folder_healthy,
-        output_path=output_path
+def apply_minimal_noise_reduction(y, sr, reduction_strength=0.3):
+    noise_sample = y[:int(sr * 0.5)] if len(y) > sr * 0.5 else y[:int(len(y) * 0.1)]
+    return nr.reduce_noise(
+        y=y, 
+        sr=sr,
+        stationary=True,
+        prop_decrease=reduction_strength,
+        n_fft=2048,
+        win_length=1024,
+        n_std_thresh_stationary=1.5
     )
 
-# ============== Next ==========
-# Processed the lengths of the audio/wavfiles in the csv 
-# Main issue is that they have duplicates of the audio lengths
-# Structured like ==== length, length_healthy === even for the unhealthy table
-# Remove the unhealthy column with the times it has because I don't need duplicates of the audio lengths 
+def apply_bandpass_filter(y, sr, low_freq=80, high_freq=8000):
+    nyquist = sr / 2
+    low_normalized = max(0.001, min(low_freq / nyquist, 0.99))
+    high_normalized = max(0.001, min(high_freq / nyquist, 0.99))
+    b, a = scipy.signal.butter(2, [low_normalized, high_normalized], btype='bandpass')
+    filtered = scipy.signal.filtfilt(b, a, y)
+    return filtered
+
+def analyze_audio_features(y, sr):
+    rms = librosa.feature.rms(y=y)[0]
+    zcr = librosa.feature.zero_crossing_rate(y=y)[0]
+    centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
+    flatness = librosa.feature.spectral_flatness(y=y)[0]
+    harmonic = librosa.effects.harmonic(y)
+    noise = y - harmonic
+    harmonic_rms = np.sqrt(np.mean(harmonic**2))
+    noise_rms = np.sqrt(np.mean(noise**2)) + 1e-10
+    hnr_estimate = 20 * np.log10(harmonic_rms / noise_rms)
+
+    return {
+        "rms_mean": np.mean(rms),
+        "rms_std": np.std(rms),
+        "zcr_mean": np.mean(zcr),
+        "zcr_std": np.std(zcr),
+        "centroid_mean": np.mean(centroid),
+        "centroid_std": np.std(centroid),
+        "flatness_mean": np.mean(flatness),
+        "flatness_std": np.std(flatness),
+        "hnr_estimate": hnr_estimate
+    }
+
+def minimal_process_voice(input_path, output_path, apply_noise_reduction=True):
+    print(f"Loading audio from: {input_path}")
+    y, sr = load_audio(input_path, target_sr=16000)
+    print(f"Processing audio with sample rate: {sr} Hz")
+    original_features = analyze_audio_features(y, sr)
+    print(f"Original audio features: {original_features}")
+
+    y_filtered = apply_bandpass_filter(y, sr, 80, 8000)
+    y_processed = apply_minimal_noise_reduction(y_filtered, sr) if apply_noise_reduction else y_filtered
+
+    processed_features = analyze_audio_features(y_processed, sr)
+    print(f"Processed audio features: {processed_features}")
+    save_wav_file(y_processed, sr, output_path)
+    print(f"Saved processed audio to: {output_path}")
+
+    return {"original": original_features, "processed": processed_features}
+
+def visualize_results(input_path, output_path, plot_path=None):
+    y_orig, sr_orig = librosa.load(input_path, sr=None)
+    y_proc, sr_proc = librosa.load(output_path, sr=None)
+
+    plt.figure(figsize=(12, 8))
+
+    plt.subplot(2, 1, 1)
+    D_orig = librosa.amplitude_to_db(np.abs(librosa.stft(y_orig, n_fft=2048)), ref=np.max)
+    librosa.display.specshow(D_orig, sr=sr_orig, x_axis='time', y_axis='log', cmap='magma')
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('Original')
+
+    plt.subplot(2, 1, 2)
+    D_proc = librosa.amplitude_to_db(np.abs(librosa.stft(y_proc, n_fft=2048)), ref=np.max)
+    librosa.display.specshow(D_proc, sr=sr_proc, x_axis='time', y_axis='log', cmap='magma')
+    plt.colorbar(format='%+2.0f dB')
+    plt.title('Minimally Processed Voice (Preserving Clinical Features)')
+
+    plt.tight_layout()
+    if plot_path:
+        plt.savefig(plot_path)
+        print(f"Saved comparison plot to: {plot_path}")
+    else:
+        plt.show()
+
+def extract_clinical_voice_features(input_path):
+    y, sr = load_audio(input_path, target_sr=16000)
+    features = analyze_audio_features(y, sr)
+
+    pitches, magnitudes = librosa.piptrack(y=y, sr=sr)
+    pitch_values = [pitches[magnitudes[:, i].argmax(), i] for i in range(pitches.shape[1]) if pitches[magnitudes[:, i].argmax(), i] > 0]
+    
+    if pitch_values:
+        pitch_diffs = np.abs(np.diff(pitch_values))
+        jitter = np.mean(pitch_diffs) / np.mean(pitch_values) if np.mean(pitch_values) > 0 else 0
+        features["jitter_approx"] = jitter
+    else:
+        features["jitter_approx"] = 0
+
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    for i in range(13):
+        features[f"mfcc{i+1}_mean"] = np.mean(mfccs[i])
+        features[f"mfcc{i+1}_std"] = np.std(mfccs[i])
+
+    return features
+
+if __name__ == "__main__":
+    input_file = r"C:\Users\richa\OneDrive\Desktop\science2\wavfiles\healthy\1- h.wav"
+    output_file = r"C:\Users\richa\OneDrive\Desktop\science2\cleaned_wavfiles\extracted_1- h.wav"
+
+    feature_comparison = minimal_process_voice(input_file, output_file, apply_noise_reduction=True)
+    visualize_results(input_file, output_file, "minimal_processing_comparison.png")
+
+    detailed_features = extract_clinical_voice_features(input_file)
+    print("\nDetailed clinical voice features for ML:")
+    for feature, value in detailed_features.items():
+        print(f"{feature}: {value}")
