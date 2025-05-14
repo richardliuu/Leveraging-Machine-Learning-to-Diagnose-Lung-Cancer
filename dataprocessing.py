@@ -6,6 +6,7 @@ import soundfile as sf
 import noisereduce as nr
 import matplotlib.pyplot as plt
 import librosa.display
+import csv
 
 def load_audio(path, target_sr=16000):
     y, sr = librosa.load(path, sr=target_sr, mono=True)
@@ -78,8 +79,7 @@ def visualize_results(input_path, output_path, plot_folder="wavfiles_pngs"):
     os.makedirs(plot_folder, exist_ok=True)
 
     # Load the processed audio
-    _, sr_proc = librosa.get_samplerate(output_path), 16000
-    y_proc, _ = librosa.load(output_path, sr=sr_proc)
+    y_proc, sr_proc = librosa.load(output_path, sr=16000)
 
     # Create the spectrogram
     plt.figure(figsize=(6, 4))
@@ -118,12 +118,76 @@ def extract_clinical_voice_features(input_path):
 
     return features
 
+def segment_audio(y, sr, segment_duration=3):
+    """Split audio into segments of a specified duration in seconds."""
+    segment_length = int(sr * segment_duration)
+    total_length = len(y)
+    segments = []
+
+    for start in range(0, total_length, segment_length):
+        end = min(start + segment_length, total_length)
+        segment = y[start:end]
+        if len(segment) >= int(0.5 * segment_length):  # keep at least 50% filled segments
+            segments.append(segment)
+        else:
+            print(f"Skipping short segment: {len(segment)/sr:.2f}s")
+
+    return segments
+
+def segment_and_process_audio(input_path, output_folder, segment_duration=3, csv_path="features_log.csv"):
+    """Split audio into segments, process each one, save it, log features to CSV, and visualize."""
+    os.makedirs(output_folder, exist_ok=True)
+    y, sr = load_audio(input_path, target_sr=16000)
+    segments = segment_audio(y, sr, segment_duration)
+    
+    base_name = os.path.splitext(os.path.basename(input_path))[0]
+    feature_list = []
+
+    # CSV Header
+    if not os.path.exists(csv_path):
+        with open(csv_path, mode='w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=["segment", "rms_mean", "rms_std", "zcr_mean", "zcr_std", 
+                                                      "centroid_mean", "centroid_std", "flatness_mean", "flatness_std", 
+                                                      "hnr_estimate", "jitter_approx"] + [f"mfcc{i+1}_mean" for i in range(13)] + [f"mfcc{i+1}_std" for i in range(13)])
+            writer.writeheader()
+
+    for i, segment in enumerate(segments):
+        segment_filename = f"{base_name}_seg{i+1}.wav"
+        segment_path = os.path.join(output_folder, segment_filename)
+
+        save_wav_file(segment, sr, segment_path)
+
+        processed_segment_path = os.path.join(output_folder, f"{base_name}_seg{i+1}_processed.wav")
+
+        print(f"\nProcessing segment {i+1}: {segment_path}")
+        minimal_process_voice(segment_path, processed_segment_path, apply_noise_reduction=True)
+
+        # Visualize processed audio
+        visualize_results(segment_path, processed_segment_path, plot_folder=output_folder)
+
+        # Extract and log features
+        features = extract_clinical_voice_features(segment_path)
+        features["segment"] = segment_filename  # Add segment info for identification
+
+        # Append to list for CSV logging
+        feature_list.append(features)
+
+    # Write features to CSV
+    with open(csv_path, mode='a', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=feature_list[0].keys())
+        writer.writerows(feature_list)
+
+    print(f"Logged features to {csv_path}")
+
 if __name__ == "__main__":
     input_file = r"C:\Users\richa\OneDrive\Desktop\science2\wavfiles\healthy\1- h.wav"
     output_file = r"C:\Users\richa\OneDrive\Desktop\science2\cleaned_wavfiles\extracted_1- h.wav"
+    segmented_output_dir = r"C:\Users\richa\OneDrive\Desktop\science2\segmented_processed_1"
+    csv_log_path = r"C:\Users\richa\OneDrive\Desktop\science2\voice_features_log.csv"
 
     feature_comparison = minimal_process_voice(input_file, output_file, apply_noise_reduction=True)
-    visualize_results(input_file, output_file)
+
+    segment_and_process_audio(input_file, segmented_output_dir, segment_duration=3, csv_path=csv_log_path)
 
     detailed_features = extract_clinical_voice_features(input_file)
     print("\nDetailed clinical voice features for ML:")
