@@ -74,30 +74,28 @@ def minimal_process_voice(input_path, output_path, apply_noise_reduction=True):
 
     return {"original": original_features, "processed": processed_features}
 
-def visualize_results(input_path, output_path, plot_path=None):
-    y_orig, sr_orig = librosa.load(input_path, sr=None)
-    y_proc, sr_proc = librosa.load(output_path, sr=None)
+def visualize_results(input_path, output_path, plot_folder="wavfiles_pngs"):
+    os.makedirs(plot_folder, exist_ok=True)
 
-    plt.figure(figsize=(12, 8))
+    # Load the processed audio
+    _, sr_proc = librosa.get_samplerate(output_path), 16000
+    y_proc, _ = librosa.load(output_path, sr=sr_proc)
 
-    plt.subplot(2, 1, 1)
-    D_orig = librosa.amplitude_to_db(np.abs(librosa.stft(y_orig, n_fft=2048)), ref=np.max)
-    librosa.display.specshow(D_orig, sr=sr_orig, x_axis='time', y_axis='log', cmap='magma')
-    plt.colorbar(format='%+2.0f dB')
-    plt.title('Original')
-
-    plt.subplot(2, 1, 2)
+    # Create the spectrogram
+    plt.figure(figsize=(6, 4))
     D_proc = librosa.amplitude_to_db(np.abs(librosa.stft(y_proc, n_fft=2048)), ref=np.max)
     librosa.display.specshow(D_proc, sr=sr_proc, x_axis='time', y_axis='log', cmap='magma')
     plt.colorbar(format='%+2.0f dB')
-    plt.title('Minimally Processed Voice (Preserving Clinical Features)')
+    plt.title('Processed Voice Spectrogram')
+
+    # Save to the designated folder
+    filename = os.path.basename(output_path).replace(".wav", "_spectrogram.png")
+    plot_path = os.path.join(plot_folder, filename)
 
     plt.tight_layout()
-    if plot_path:
-        plt.savefig(plot_path)
-        print(f"Saved comparison plot to: {plot_path}")
-    else:
-        plt.show()
+    plt.savefig(plot_path)
+    print(f"Saved processed spectrogram to: {plot_path}")
+    plt.close()
 
 def extract_clinical_voice_features(input_path):
     y, sr = load_audio(input_path, target_sr=16000)
@@ -125,7 +123,7 @@ if __name__ == "__main__":
     output_file = r"C:\Users\richa\OneDrive\Desktop\science2\cleaned_wavfiles\extracted_1- h.wav"
 
     feature_comparison = minimal_process_voice(input_file, output_file, apply_noise_reduction=True)
-    visualize_results(input_file, output_file, "minimal_processing_comparison.png")
+    visualize_results(input_file, output_file)
 
     detailed_features = extract_clinical_voice_features(input_file)
     print("\nDetailed clinical voice features for ML:")
