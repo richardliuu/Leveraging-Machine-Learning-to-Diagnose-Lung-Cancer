@@ -2,3 +2,6 @@ wavfiles/
 cleaned_wavfiles/
 wavfiles_pngs/
 segmented_processed_1/
+segments_padded/
+all_mfccs/
+voice_features_log/
