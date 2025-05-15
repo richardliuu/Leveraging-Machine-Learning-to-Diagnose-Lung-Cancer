@@ -6,6 +6,7 @@ import soundfile as sf
 import noisereduce as nr
 import csv
 import parselmouth
+import pandas as pd
 
 def load_audio(path, target_sr=16000):
     y, sr = librosa.load(path, sr=target_sr, mono=True)
@@ -63,41 +64,33 @@ def analyze_audio_features(y, sr):
         "hnr_estimate": hnr
     }
 
-def extract_formants(sound):
-    formants = [[], [], []]
-    formant_path = sound.to_formant_burg(time_step=0.01)
-    for t in np.arange(0, sound.duration, 0.01):
-        for i in range(3):
-            try:
-                formants[i].append(parselmouth.praat.call(formant_path, "Get value at time", i+1, t, 'Hertz'))
-            except:
-                formants[i].append(np.nan)
-    return {
-        "formant1_mean": np.nanmean(formants[0]),
-        "formant2_mean": np.nanmean(formants[1]),
-        "formant3_mean": np.nanmean(formants[2])
-    }
-
 def extract_parselmouth_features(path):
-    snd = parselmouth.Sound(path)
-    pitch = snd.to_pitch()
-    point_process = parselmouth.praat.call(snd, "To PointProcess (periodic, cc)", 75, 500)
     try:
-        jitter = parselmouth.praat.call([snd, point_process], "Get jitter (local)", 0, 0, 0.0001, 0.02, 1.3)
-        shimmer = parselmouth.praat.call([snd, point_process], "Get shimmer (local)", 0, 0, 0.0001, 0.02, 1.3, 1.6)
-    except:
-        jitter, shimmer = 0, 0
-    pitch_values = pitch.selected_array['frequency']
-    pitch_values = pitch_values[pitch_values > 0]
-    formant_features = extract_formants(snd)
+        print(f"Analyzing pitch for {path}")
+        snd = parselmouth.Sound(path)
+        pitch = parselmouth.praat.call(snd, "To Pitch", 0.0, 75, 600)
+        pitch_values = pitch.selected_array['frequency']
+        pitch_values = pitch_values[pitch_values > 0]
 
-    return {
-        "jitter_local": jitter,
-        "shimmer_local": shimmer,
-        "pitch_mean": np.mean(pitch_values) if len(pitch_values) > 0 else 0,
-        "pitch_std": np.std(pitch_values) if len(pitch_values) > 0 else 0,
-        **formant_features
-    }
+        if len(pitch_values) == 0:
+            print("Warning: No valid pitch values found")
+            pitch_mean = 0
+            pitch_std = 0
+        else:
+            pitch_mean = np.mean(pitch_values)
+            pitch_std = np.std(pitch_values)
+            print(f"Found {len(pitch_values)} valid pitch measurements. Mean: {pitch_mean:.2f}Hz")
+
+        return {
+            "pitch_mean": pitch_mean,
+            "pitch_std": pitch_std
+        }
+    except Exception as e:
+        print(f"Error in parselmouth analysis: {e}")
+        return {
+            "pitch_mean": 0,
+            "pitch_std": 0
+        }
 
 def extract_all_features(y, sr, path=None):
     features = analyze_audio_features(y, sr)
@@ -109,16 +102,27 @@ def extract_all_features(y, sr, path=None):
         features.update(extract_parselmouth_features(path))
     return features, mfccs
 
-def process_and_segment_audio(input_path, output_folder, csv_path, segment_duration=3):
+def fix_nan_values(features_list):
+    df = pd.DataFrame(features_list)
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+    for col in numeric_cols:
+        if df[col].isna().any():
+            mean_val = df[col].mean()
+            replacement = 0 if np.isnan(mean_val) else mean_val
+            df[col] = df[col].fillna(replacement)
+    return df.to_dict('records')
+
+def process_and_segment_audio(input_path, output_folder, csv_path, cancer_stage, segment_duration=3):
     os.makedirs(output_folder, exist_ok=True)
     y, sr = load_audio(input_path)
     segment_len = int(sr * segment_duration)
 
     features_all = []
-    header_fields = ["segment", "rms_mean", "rms_std", "zcr_mean", "zcr_std", "centroid_mean", "centroid_std",
-                     "flatness_mean", "flatness_std", "hnr_estimate", "jitter_local", "shimmer_local",
-                     "pitch_mean", "pitch_std", "formant1_mean", "formant2_mean", "formant3_mean"] + \
-                     [f"mfcc{i+1}_mean" for i in range(13)] + [f"mfcc{i+1}_std" for i in range(13)] + ["mfcc_path"]
+    header_fields = [
+        "segment", "cancer_stage", "rms_mean", "rms_std", "zcr_mean", "zcr_std",
+        "centroid_mean", "centroid_std", "flatness_mean", "flatness_std", "hnr_estimate",
+        "pitch_mean", "pitch_std"
+    ] + [f"mfcc{i+1}_mean" for i in range(13)] + [f"mfcc{i+1}_std" for i in range(13)] + ["mfcc_path"]
 
     for i in range(0, len(y), segment_len):
         segment = y[i:i+segment_len]
@@ -134,7 +138,6 @@ def process_and_segment_audio(input_path, output_folder, csv_path, segment_durat
 
         try:
             features, mfccs = extract_all_features(reduced, sr, seg_path)
-            # Save deep learning ready MFCC numpy array
             mfcc_filename = seg_name.replace(".wav", "_mfcc.npy")
             mfcc_path = os.path.join(output_folder, mfcc_filename)
             np.save(mfcc_path, mfccs)
@@ -143,8 +146,12 @@ def process_and_segment_audio(input_path, output_folder, csv_path, segment_durat
             continue
 
         features["segment"] = seg_name
-        features["mfcc_path"] = mfcc_filename  # relative path for convenience
+        features["cancer_stage"] = cancer_stage
+        features["mfcc_path"] = mfcc_filename
         features_all.append(features)
+
+    if features_all:
+        features_all = fix_nan_values(features_all)
 
     with open(csv_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=header_fields)
@@ -157,4 +164,5 @@ if __name__ == "__main__":
     input_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\wavfiles\\healthy\\1- h.wav"
     output_dir = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\segments_padded"
     csv_log = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\voice_features_log.csv"
-    process_and_segment_audio(input_file, output_dir, csv_log)
+    cancer_stage = 0  # 0=healthy, 1=stage1, 2=stage2, 3=stage3, 4=stage4
+    process_and_segment_audio(input_file, output_dir, csv_log, cancer_stage)
