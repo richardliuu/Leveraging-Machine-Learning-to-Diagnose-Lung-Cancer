@@ -2,18 +2,15 @@ import os
 import numpy as np
 import librosa
 import scipy.signal
-import soundfile as sf
 import noisereduce as nr
 import csv
 import parselmouth
 import pandas as pd
+import soundfile as sf
 
 def load_audio(path, target_sr=16000):
     y, sr = librosa.load(path, sr=target_sr, mono=True)
     return y, sr
-
-def save_wav_file(y, sr, out_path):
-    sf.write(out_path, y, sr, format='WAV')
 
 def apply_minimal_noise_reduction(y, sr, reduction_strength=0.3):
     noise_sample = y[:int(sr * 0.5)] if len(y) > sr * 0.5 else y[:int(len(y) * 0.1)]
@@ -66,20 +63,17 @@ def analyze_audio_features(y, sr):
 
 def extract_parselmouth_features(path):
     try:
-        print(f"Analyzing pitch for {path}")
         snd = parselmouth.Sound(path)
         pitch = parselmouth.praat.call(snd, "To Pitch", 0.0, 75, 600)
         pitch_values = pitch.selected_array['frequency']
         pitch_values = pitch_values[pitch_values > 0]
 
         if len(pitch_values) == 0:
-            print("Warning: No valid pitch values found")
             pitch_mean = 0
             pitch_std = 0
         else:
             pitch_mean = np.mean(pitch_values)
             pitch_std = np.std(pitch_values)
-            print(f"Found {len(pitch_values)} valid pitch measurements. Mean: {pitch_mean:.2f}Hz")
 
         return {
             "pitch_mean": pitch_mean,
@@ -112,57 +106,68 @@ def fix_nan_values(features_list):
             df[col] = df[col].fillna(replacement)
     return df.to_dict('records')
 
-def process_and_segment_audio(input_path, output_folder, csv_path, cancer_stage, segment_duration=3):
+def append_to_npy(new_data, npy_path):
+    if os.path.exists(npy_path):
+        existing = np.load(npy_path, allow_pickle=True)
+        combined = list(existing) + new_data
+    else:
+        combined = new_data
+    np.save(npy_path, np.array(combined, dtype=object), allow_pickle=True)
+
+def process_and_segment_audio(input_path, output_folder, csv_path, npy_path, cancer_stage, patient_id, segment_duration=3):
     os.makedirs(output_folder, exist_ok=True)
     y, sr = load_audio(input_path)
     segment_len = int(sr * segment_duration)
 
     features_all = []
     header_fields = [
-        "segment", "cancer_stage", "rms_mean", "rms_std", "zcr_mean", "zcr_std",
+        "patient_id", "segment", "cancer_stage", "rms_mean", "rms_std", "zcr_mean", "zcr_std",
         "centroid_mean", "centroid_std", "flatness_mean", "flatness_std", "hnr_estimate",
         "pitch_mean", "pitch_std"
-    ] + [f"mfcc{i+1}_mean" for i in range(13)] + [f"mfcc{i+1}_std" for i in range(13)] + ["mfcc_path"]
+    ] + [f"mfcc{i+1}_mean" for i in range(13)] + [f"mfcc{i+1}_std" for i in range(13)]
+
+    all_mfccs = []
 
     for i in range(0, len(y), segment_len):
         segment = y[i:i+segment_len]
         if len(segment) < 0.5 * segment_len:
             continue
         segment = pad_to_fixed_length(segment, sr, segment_duration)
-        seg_name = f"{os.path.splitext(os.path.basename(input_path))[0]}_seg{i//segment_len+1}_padded.wav"
-        seg_path = os.path.join(output_folder, seg_name)
-        save_wav_file(segment, sr, seg_path)
         filtered = apply_bandpass_filter(segment, sr)
         reduced = apply_minimal_noise_reduction(filtered, sr)
-        save_wav_file(reduced, sr, seg_path)
 
         try:
-            features, mfccs = extract_all_features(reduced, sr, seg_path)
-            mfcc_filename = seg_name.replace(".wav", "_mfcc.npy")
-            mfcc_path = os.path.join(output_folder, mfcc_filename)
-            np.save(mfcc_path, mfccs)
+            features, mfccs = extract_all_features(reduced, sr, input_path)
+            features["segment"] = f"{os.path.splitext(os.path.basename(input_path))[0]}_seg{i//segment_len+1}"
+            features["cancer_stage"] = cancer_stage
+            features["patient_id"] = patient_id
+            features_all.append(features)
+            all_mfccs.append(mfccs.T)  # Transpose for time steps × MFCCs
         except Exception as e:
-            print(f"Warning: Failed to extract features for {seg_path}: {e}")
+            print(f"Warning: Failed to extract features for segment {i//segment_len+1}: {e}")
             continue
-
-        features["segment"] = seg_name
-        features["cancer_stage"] = cancer_stage
-        features["mfcc_path"] = mfcc_filename
-        features_all.append(features)
 
     if features_all:
         features_all = fix_nan_values(features_all)
+        df_new = pd.DataFrame(features_all)
+        if os.path.exists(csv_path):
+            df_old = pd.read_csv(csv_path)
+            df_combined = pd.concat([df_old, df_new], ignore_index=True)
+        else:
+            df_combined = df_new
+        df_combined.to_csv(csv_path, index=False)
 
-    with open(csv_path, 'w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=header_fields)
-        writer.writeheader()
-        writer.writerows(features_all)
+    if all_mfccs:
+        labeled_mfccs = [(mfcc, cancer_stage, patient_id) for mfcc in all_mfccs]
+        append_to_npy(labeled_mfccs, npy_path)
 
-    print(f"Processed segments saved in {output_folder}, features saved in {csv_path}")
+    print(f"Finished processing {input_path}. Segments: {len(all_mfccs)}")
 
 if __name__ == "__main__":
-    input_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\wavfiles\\healthy\\1- h.wav"
+    input_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\wavfiles\\healthy\\3- h.wav"
     output_dir = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\segments_padded"
     csv_log = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\voice_features_log.csv"
+    mfcc_npy_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\all_mfccs.npy"
     cancer_stage = 0  # 0=healthy, 1=stage1, 2=stage2, 3=stage3, 4=stage4
-    process_and_segment_audio(input_file, output_dir, csv_log, cancer_stage)
+    patient_id = "H003"
+    process_and_segment_audio(input_file, output_dir, csv_log, mfcc_npy_file, cancer_stage, patient_id)

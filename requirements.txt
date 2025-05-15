@@ -9,3 +9,4 @@ tensorflow
 pydub
 noisereduce
 imbalanced-learn
+praat-parselmouth
