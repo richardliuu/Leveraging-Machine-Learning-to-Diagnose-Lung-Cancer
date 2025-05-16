@@ -164,10 +164,12 @@ def process_and_segment_audio(input_path, output_folder, csv_path, npy_path, can
     print(f"Finished processing {input_path}. Segments: {len(all_mfccs)}")
 
 if __name__ == "__main__":
-    input_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\wavfiles\\healthy\\3- h.wav"
+    input_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\wavfiles\\unhealthy\\16-\\16- u3.wav"
     output_dir = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\segments_padded"
     csv_log = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\voice_features_log.csv"
     mfcc_npy_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\all_mfccs.npy"
-    cancer_stage = 0  # 0=healthy, 1=stage1, 2=stage2, 3=stage3, 4=stage4
-    patient_id = "H003"
+    cancer_stage = 3  # 0=healthy, 1=stage1, 2=stage2, 3=stage3, 4=stage4
+    patient_id = "U016"
     process_and_segment_audio(input_file, output_dir, csv_log, mfcc_npy_file, cancer_stage, patient_id)
+
+    # Be careful at patient_id = h030 because some patients are omitted 
