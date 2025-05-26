@@ -10,3 +10,5 @@ pydub
 noisereduce
 imbalanced-learn
 praat-parselmouth
+xgboost
+shap
