@@ -10,6 +10,10 @@ from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dens
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from collections import Counter
 
+# ============ Update MFCCS.npy to match the new binary classification models ============= 
+# ============ Includes remaking the data ===================
+
+
 # Load data from .npy
 data = np.load('all_mfccs.npy', allow_pickle=True)
 
