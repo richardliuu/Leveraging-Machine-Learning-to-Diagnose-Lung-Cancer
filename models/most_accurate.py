@@ -288,7 +288,7 @@ def summarize_results(all_reports, all_conf_matrices, fold_details):
 if __name__ == "__main__":
     # Load dataset
     print("Loading dataset...")
-    df = pd.read_csv("updated_file.csv")
+    df = pd.read_csv("models/updated_file.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
     # Step 1: Verify data integrity
@@ -301,19 +301,14 @@ if __name__ == "__main__":
         print("Consider cleaning your data first.")
     
     # Step 2: Run proper cross-validation
-    print(f"\nStep 2: Cross-Validation")
+    print(f"\nCross-Validation")
     results = run_proper_cross_validation(df)
     
     if results[0] is not None:  # If no critical errors
         all_reports, all_conf_matrices, fold_details = results
         
         # Step 3: Summarize results
-        print(f"\nStep 3: Results Summary")
-        summarize_results(all_reports, all_conf_matrices, fold_details)
-        
-        # Optional: Plot training curves for last fold
-        # Note: Requires modifying the training loop to save history 
-        print(f"\nCross-validation completed successfully!")
-        
+        print(f"\nResults Summary")
+        summarize_results(all_reports, all_conf_matrices, fold_details)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
