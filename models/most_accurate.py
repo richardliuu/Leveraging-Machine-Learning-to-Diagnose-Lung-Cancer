@@ -4,12 +4,15 @@ from sklearn.model_selection import GroupKFold, train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from imblearn.combine import SMOTEENN
 from collections import Counter
 import matplotlib.pyplot as plt
+
+
+# ==================== NEED TO INCLUDE MATPLOTLIB PLOTTING =======================
 
 def verify_data_integrity(df):
     print("=== DATA INTEGRITY CHECKS ===")
@@ -67,10 +70,7 @@ def verify_data_integrity(df):
     return duplicates.sum() == 0 and len(inconsistent_patients) == 0
 
 def run_proper_cross_validation(df):
-    """
-    Run cross-validation with proper patient-level splitting and no data leakage
-    """
-    
+    global history 
     # Limit samples per patient if specified
     MAX_SAMPLES_PER_PATIENT = None  # Set to number if you want to limit, or None to disable
     
@@ -86,7 +86,6 @@ def run_proper_cross_validation(df):
     y = df['cancer_stage']
     groups = df['patient_id']  # Group by patient ID
     
-    print(f"\nStarting cross-validation...")
     print(f"Total samples: {len(df)}")
     print(f"Total patients: {df['patient_id'].nunique()}")
     print(f"Features: {X.shape[1]}")
@@ -115,16 +114,16 @@ def run_proper_cross_validation(df):
         
         overlap = train_patients.intersection(test_patients)
         if overlap:
-            print(f"🚨 CRITICAL: Patient leakage detected!")
+            print(f"CRITICAL: Patient leakage detected!")
             print(f"Overlapping patients: {list(overlap)[:5]}...")
             return None, None
         else:
-            print("✓ No patient overlap between train/test")
+            print("No patient overlap between train/test")
         
         print(f"Train: {len(train_patients)} patients, {len(X_train_fold)} samples")
         print(f"Test:  {len(test_patients)} patients, {len(X_test_fold)} samples")
         
-        # Fit preprocessing ONLY on training data (CRITICAL: No data leakage!)
+        # Fit preprocessing ONLY on training data 
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train_fold)
         X_test_scaled = scaler.transform(X_test_fold)  # Only transform, don't fit!
@@ -142,7 +141,7 @@ def run_proper_cross_validation(df):
         print(f"Test class distribution:  {dict(test_class_dist)}")
         
         # Apply SMOTEENN only to training data
-        print("Applying SMOTEENN to training data...")
+        print("Applying SMOTEENN to training data")
         smote = SMOTEENN(random_state=42)
         X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train_encoded)
         
@@ -161,10 +160,16 @@ def run_proper_cross_validation(df):
         
         print(f"Final training set: {len(X_train_final)} samples")
         print(f"Validation set: {len(X_val_final)} samples")
-        
+
+
+        """
+        Here to tweak the model
+        """
+
         # Build model (fresh for each fold)
         model = Sequential([
-            Dense(512, activation='relu', input_shape=(X_train_final.shape[1],)),
+            Input(shape=(X_train_final.shape[1],)),
+            Dense(512, activation='relu'),
             BatchNormalization(),
             Dropout(0.4),
             
@@ -187,11 +192,22 @@ def run_proper_cross_validation(df):
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
         
-        # Callbacks
-        early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-        lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
+        model.summary()
         
-        print("Training model...")
+        # Callbacks
+        early_stopping = EarlyStopping(
+            monitor='val_loss', 
+            patience=5, 
+            restore_best_weights=True
+            )
+        
+        lr_schedule = ReduceLROnPlateau(
+            monitor='val_loss', 
+            factor=0.1, 
+            patience=3, 
+            verbose=1
+            )
+        
         history = model.fit(
             X_train_final, y_train_final,
             validation_data=(X_val_final, y_val_final),
@@ -239,13 +255,49 @@ def summarize_results(all_reports, all_conf_matrices, fold_details):
     
     # Per-fold summary
     accuracies = [report['accuracy'] for report in all_reports]
+
+    # Trying to plot epochs
+    epochs_trained = [report['epochs_trained'] for report in all_reports]
     
     print("Per-fold results:")
     for i, (acc, details) in enumerate(zip(accuracies, fold_details)):
         print(f"Fold {i+1}: {acc:.4f} accuracy "
               f"({details['test_patients']} patients, {details['test_samples']} samples, "
               f"{details['epochs_trained']} epochs)")
-    
+        
+
+# The Plotting DOES NOT go over all folds (issue where it plots the same thing 4 times)
+# My own trolling stuff here 
+# Need to work on the plotting of the performance 
+
+    for i, (acc, details) in enumerate(zip(epochs_trained, accuracies, fold_details, start=1)):
+        plt.plot(epochs_trained, accuracies, label=f'Fold {i}')
+
+    plt.figure(figsize=(12,5))
+
+    plt.subplot(1,2,1)
+    plt.plot(history.history['loss'], label='Training Loss')
+    plt.plot(history.history['val_loss'], label='Validation Loss')
+    plt.title('Loss Curve')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.subplot(1,2,2)
+    plt.plot(history.history['accuracy'], label='Training Accuracy')
+    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+    plt.title('Accuracy Curve')
+    plt.xlabel('Epochs')
+    plt.ylabel('Accuracy')
+    plt.legend()
+
+    plt.show()
+
+
+
+
+
+
     # Overall statistics
     avg_accuracy = np.mean(accuracies)
     std_accuracy = np.std(accuracies)
@@ -269,15 +321,14 @@ def summarize_results(all_reports, all_conf_matrices, fold_details):
     print(np.round(avg_conf_matrix).astype(int))
     
     # Performance assessment
-    print(f"\nPerformance Assessment:")
     if avg_accuracy > 0.95:
-        print("VERY HIGH accuracy - check for data leakage or data quality issues!")
+        print("VERY HIGH accuracy")
     elif avg_accuracy > 0.85:
-        print("HIGH accuracy - verify this is realistic for your problem")
+        print("HIGH accuracy")
     elif avg_accuracy > 0.7:
-        print("Good accuracy - seems reasonable")
+        print("Good accuracy")
     else:
-        print("Moderate accuracy - may need model tuning")
+        print("Moderate accuracy (Model tuning)")
     
     if std_accuracy > 0.1:
         print("HIGH variance across folds - results may not be stable")
@@ -287,7 +338,7 @@ def summarize_results(all_reports, all_conf_matrices, fold_details):
 # MAIN EXECUTION
 if __name__ == "__main__":
     # Load dataset
-    print("Loading dataset...")
+    print("Loading dataset")
     df = pd.read_csv("models/updated_file.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
@@ -297,8 +348,7 @@ if __name__ == "__main__":
     
     if not is_clean:
         print("\nDATA QUALITY ISSUES DETECTED!")
-        print("Proceeding anyway, but results may be unreliable...")
-        print("Consider cleaning your data first.")
+        print("Results may be unreliable")
     
     # Step 2: Run proper cross-validation
     print(f"\nCross-Validation")
@@ -312,3 +362,5 @@ if __name__ == "__main__":
         summarize_results(all_reports, all_conf_matrices, fold_details)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
+        
+    
