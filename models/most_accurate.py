@@ -96,6 +96,7 @@ def run_proper_cross_validation(df):
     all_reports = []
     all_conf_matrices = []
     fold_details = []
+    all_histories = []
     
     for fold, (train_idx, test_idx) in enumerate(group_kfold.split(X, y, groups)):
         print(f"\n{'='*50}")
@@ -245,10 +246,14 @@ def run_proper_cross_validation(df):
             'accuracy': report['accuracy'],
             'epochs_trained': len(history.history['loss'])
         })
+
+        # 
+
+        all_histories.append(history.history)
     
     return all_reports, all_conf_matrices, fold_details
 
-def summarize_results(all_reports, all_conf_matrices, fold_details):
+def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories):
     print(f"\n{'='*60}")
     print("CROSS-VALIDATION SUMMARY")
     print(f"{'='*60}")
@@ -270,29 +275,28 @@ def summarize_results(all_reports, all_conf_matrices, fold_details):
 # My own trolling stuff here 
 # Need to work on the plotting of the performance 
 
-    for i, (acc, details) in enumerate(zip(epochs_trained, accuracies, fold_details, start=1)):
-        plt.plot(epochs_trained, accuracies, label=f'Fold {i}')
+    for i, history in enumerate(all_histories):
+        plt.figure(figsize=(12, 4))
+        plt.suptitle(f"Fold {i+1} Performance", fontsize=14)
+        
+        plt.subplot(1, 2, 1)
+        plt.plot(history['loss'], label='Train Loss')
+        plt.plot(history['val_loss'], label='Val Loss')
+        plt.title('Loss Curve')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
 
-    plt.figure(figsize=(12,5))
+        plt.subplot(1, 2, 2)
+        plt.plot(history['accuracy'], label='Train Acc')
+        plt.plot(history['val_accuracy'], label='Val Acc')
+        plt.title('Accuracy Curve')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
 
-    plt.subplot(1,2,1)
-    plt.plot(history.history['loss'], label='Training Loss')
-    plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title('Loss Curve')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-
-    plt.subplot(1,2,2)
-    plt.plot(history.history['accuracy'], label='Training Accuracy')
-    plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-    plt.title('Accuracy Curve')
-    plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.legend()
-
-    plt.show()
-
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
 
 
 
@@ -355,11 +359,11 @@ if __name__ == "__main__":
     results = run_proper_cross_validation(df)
     
     if results[0] is not None:  # If no critical errors
-        all_reports, all_conf_matrices, fold_details = results
+        all_reports, all_conf_matrices, fold_details, all_histories = results
         
         # Step 3: Summarize results
         print(f"\nResults Summary")
-        summarize_results(all_reports, all_conf_matrices, fold_details)    
+        summarize_results(all_reports, all_conf_matrices, fold_details, all_histories)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
         
