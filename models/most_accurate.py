@@ -236,6 +236,7 @@ def run_proper_cross_validation(df):
         # Store results
         all_reports.append(report)
         all_conf_matrices.append(c_matrix)
+        all_histories.append(history.history)
         
         fold_details.append({
             'fold': fold + 1,
@@ -246,12 +247,8 @@ def run_proper_cross_validation(df):
             'accuracy': report['accuracy'],
             'epochs_trained': len(history.history['loss'])
         })
-
-        # 
-
-        all_histories.append(history.history)
     
-    return all_reports, all_conf_matrices, fold_details
+    return all_reports, all_conf_matrices, fold_details, all_histories
 
 def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories):
     print(f"\n{'='*60}")
@@ -262,18 +259,13 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
     accuracies = [report['accuracy'] for report in all_reports]
 
     # Trying to plot epochs
-    epochs_trained = [report['epochs_trained'] for report in all_reports]
+    epochs_trained = [fold['epochs_trained'] for fold in fold_details]
     
     print("Per-fold results:")
     for i, (acc, details) in enumerate(zip(accuracies, fold_details)):
         print(f"Fold {i+1}: {acc:.4f} accuracy "
               f"({details['test_patients']} patients, {details['test_samples']} samples, "
               f"{details['epochs_trained']} epochs)")
-        
-
-# The Plotting DOES NOT go over all folds (issue where it plots the same thing 4 times)
-# My own trolling stuff here 
-# Need to work on the plotting of the performance 
 
     for i, history in enumerate(all_histories):
         plt.figure(figsize=(12, 4))
@@ -297,11 +289,7 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
 
         plt.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()
-
-
-
-
-
+        
     # Overall statistics
     avg_accuracy = np.mean(accuracies)
     std_accuracy = np.std(accuracies)
