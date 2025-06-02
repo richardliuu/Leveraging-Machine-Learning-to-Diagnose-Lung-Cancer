@@ -118,22 +118,3 @@ avg_conf_matrix = np.mean(all_conf_matrices, axis=0)
 print("Average Confusion Matrix over all folds:\n", np.round(avg_conf_matrix).astype(int))
 
 # Plot average training and validation loss and accuracy of last fold (example)
-plt.figure(figsize=(12,5))
-
-plt.subplot(1,2,1)
-plt.plot(history.history['loss'], label='Training Loss')
-plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.title('Loss Curve (last fold)')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.legend()
-
-plt.subplot(1,2,2)
-plt.plot(history.history['accuracy'], label='Training Accuracy')
-plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
-plt.title('Accuracy Curve (last fold)')
-plt.xlabel('Epochs')
-plt.ylabel('Accuracy')
-plt.legend()
-
-plt.show()
