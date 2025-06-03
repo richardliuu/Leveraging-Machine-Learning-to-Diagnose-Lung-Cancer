@@ -91,6 +91,11 @@ plt.title("Confusion Matrix")
 plt.tight_layout()
 plt.show()
 
+
+
+# Might need to exclude SHAP for iteration evaluation 
+
+
 # --- SHAP EXPLANATIONS ---
 explainer = shap.Explainer(xgb, X_train_resampled)
 shap_values = explainer(X_test)

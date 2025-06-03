@@ -1,26 +1,26 @@
 # This file will be used to compare the models' performance on Group K fold-cross validation
 # Very import that all the models conduct the same cross validation or else the results are not right 
 
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
-# Hard coding the performance values of the models 
+# Include legend 
+# Models: 1, 2, 3, 4 for each corresponding bracket 
+# Model 1 Done: 
 
-model1 = []
+y_sets = [[82.7, 81.0, 87.2, 95.1], [84, 92, 71, 90], [53, 60, 32, 22], [60, 32, 32, 54]]
+x_sets = [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]
 
-model2 = []
+adjusted_x_sets = [[x + 1 for x in x_set] for x_set in x_sets]
 
-model3 = []
+for i in range(len(adjusted_x_sets)):
+    plt.plot(adjusted_x_sets[i], y_sets[i], marker='o', linestyle='-', label=f'Set {i+1}')
 
-model4 = []  
+# Sets only integer values for the graph 
+plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
 
-# Graphing the results
-
-plt.plot('model1', label='m', color='')
-plt.plot()
-plt.plot()
-plt.plot()
+plt.xlabel('Fold')
+plt.ylabel('Accuracy')
 plt.title("Model Performance across 4 Folds with Cross Validation")
-plt.ylabel("Accuracy")
-plt.xlabel("Fold")
-
+plt.grid(True)
 plt.show()

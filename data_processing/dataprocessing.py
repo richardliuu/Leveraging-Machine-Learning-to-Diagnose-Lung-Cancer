@@ -163,12 +163,14 @@ def process_and_segment_audio(input_path, output_folder, csv_path, npy_path, can
 
     print(f"Finished processing {input_path}. Segments: {len(all_mfccs)}")
 
+
+
 if __name__ == "__main__":
     input_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\wavfiles\\unhealthy\\50- u.wav"
     output_dir = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\segments_padded"
     csv_log = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\voice_features_log.csv"
-    mfcc_npy_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\all_mfccs.npy"
-    cancer_stage = 2  # 0=healthy, 1=stage1, 2=stage2, 3=stage3, 4=stage4
+    mfcc_npy_file = r"C:\\Users\\richa\\OneDrive\\Desktop\\science2\\binary_mfccs.npy"
+    cancer_stage = 1 
     patient_id = "U050"
     process_and_segment_audio(input_file, output_dir, csv_log, mfcc_npy_file, cancer_stage, patient_id)
 
