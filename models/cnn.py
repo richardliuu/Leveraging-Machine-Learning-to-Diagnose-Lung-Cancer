@@ -14,13 +14,6 @@ from collections import Counter
 # That the methodology of the CNN model (data leakage, kfold cv) are the same as SMOTEMLP.py
 # SMOTEMLP.py (most accurate in every way model)
 
-
-
-
-
-# Load data from .npy
-data = np.load('models/binary_mfccs.npy', allow_pickle=True)
-
 def verify_data_integrity(df):
     feature_cols = df.drop(columns=['segment', 'cancer_stage', 'patient_id']).columns
     duplicates = df.duplicated(subset=feature_cols)
@@ -73,9 +66,6 @@ def verify_data_integrity(df):
     
     return duplicates.sum() == 0 and len(inconsistent_patients) == 0
 
-
-
-
 def cross_validation(df):
     global history 
 
@@ -83,7 +73,7 @@ def cross_validation(df):
     y = []
     groups = []
 
-    for mfcc, label, patient_id in data:
+    for mfcc, label, patient_id in df:
         if mfcc.shape[0] >= 60:
             mfcc = mfcc[:60]
         else:
@@ -106,26 +96,25 @@ def cross_validation(df):
 
     # Encode labels
     encoder = LabelEncoder()
-    y_encoded = encoder.fit_transform(y)
+    y_test_encoded = encoder.fit_transform(y)
     num_classes = len(encoder.classes_)
-    y_categorical = to_categorical(y_encoded, num_classes=num_classes)
+    y_categorical = to_categorical(y_test_encoded, num_classes=num_classes)
 
     # Set up GroupKFold
     k = 4
     gkf = GroupKFold(n_splits=k)
-
 
     all_reports = []
     all_conf_matrices = []
     fold_details = []
     all_histories = []
 
-    for fold, (train_index, test_index) in enumerate(gkf.split(X, y_encoded, groups=groups)):
+    for fold, (train_idx, test_idx) in enumerate(gkf.split(X, y_test_encoded, groups=groups)):
         print(f"\n--- Fold {fold+1}/{k} ---")
 
-        X_train_fold, X_test_fold = X[train_index], X[test_index]
-        y_train_fold_int, y_test_fold_int = y_encoded[train_index], y_encoded[test_index]
-        groups_train, groups_test = groups[train_index], groups[test_index]
+        X_train_fold, X_test_fold = X[train_idx], X[test_idx]
+        y_train_fold_int, y_test_fold_int = y_test_encoded[train_idx], y_test_encoded[test_idx]
+        groups_train, groups_test = groups[train_idx], groups[test_idx]
 
         y_train_fold = to_categorical(y_train_fold_int, num_classes=num_classes)
         y_test_fold = to_categorical(y_test_fold_int, num_classes=num_classes)
@@ -139,11 +128,22 @@ def cross_validation(df):
         )
 
 # First verify no data leakage 
+# Verify no patient leakage
+        train_patients = set(df.iloc[train_idx]['patient_id'])
+        test_patients = set(df.iloc[test_idx]['patient_id'])
+        
+        overlap = train_patients.intersection(test_patients)
+        if overlap:
+            print(f"CRITICAL: Patient leakage detected!")
+            print(f"Overlapping patients: {list(overlap)[:5]}...")
+            return None, None
+        else:
+            print("No patient overlap between train/test")
+        
+        print(f"Train: {len(train_patients)} patients, {len(X_train_fold)} samples")
+        print(f"Test:  {len(test_patients)} patients, {len(X_test_fold)} samples")
 
-
-
-
-        # Build CNN model fresh each fold
+        
         model = Sequential([
             Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(60, 13, 1)),
             MaxPooling2D(pool_size=(2, 2)),
@@ -302,12 +302,10 @@ def summarize_results(all_reports, all_conf_matrices):
     """    
     
 if __name__ == "__main__":
-    # Load dataset
-    print("Loading dataset")
-    df = pd.read_csv("models/binary_features_log.csv")
-    print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
+    df = np.load('models/binary_mfccs.npy', allow_pickle=True)
+    #print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
-    # Step 1: Verify data integrity
+    # Verify data integrity
     print("\nStep 1: Data Integrity Check")
     is_clean = verify_data_integrity(df)
     
