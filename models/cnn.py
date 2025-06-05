@@ -197,7 +197,7 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
         print("Low variance across folds - stable results")
 
 if __name__ == "__main__":
-    df = np.load('models/binary_mfccs.npy', allow_pickle=True)
+    df = np.load('data/binary_mfccs.npy', allow_pickle=True)
     print("\nStep 1: Data Integrity Check")
     is_clean = verify_data_integrity_from_array(df)
 

@@ -10,6 +10,9 @@ from imblearn.over_sampling import SMOTE  # Changed from SMOTEENN
 from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 
+
+# ========= Needs GroupKFold Cross Validation =============
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -19,7 +22,7 @@ logging.info("Script started")
 try:
     # Load data
     logging.info("Loading dataset...")
-    df = pd.read_csv("models/binary_features_log.csv")
+    df = pd.read_csv("data/binary_features_log.csv")
     logging.info(f"Dataset shape: {df.shape}")
 
     # Convert labels

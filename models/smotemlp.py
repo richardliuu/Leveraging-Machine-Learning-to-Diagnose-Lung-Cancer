@@ -321,7 +321,7 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
 if __name__ == "__main__":
     # Load dataset
     print("Loading dataset")
-    df = pd.read_csv("models/binary_features_log.csv")
+    df = pd.read_csv("data/binary_features_log.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
     # Step 1: Verify data integrity
