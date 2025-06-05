@@ -5,3 +5,4 @@ segmented_processed_1/
 segments_padded/
 all_mfccs.npy/
 voice_features_log.csv/
+data/
