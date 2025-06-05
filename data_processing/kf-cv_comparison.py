@@ -6,9 +6,12 @@ from matplotlib.ticker import MaxNLocator
 
 # Include legend 
 # Models: 1, 2, 3, 4 for each corresponding bracket 
-# Model 1 Done: 
+# Model 1 Done (SMOTEMLP):
+# Model 2 Done (CNN):  
 
-y_sets = [[82.7, 81.0, 87.2, 95.1], [84, 92, 71, 90], [53, 60, 32, 22], [60, 32, 32, 54]]
+
+
+y_sets = [[82.7, 81.0, 87.2, 95.1], [83.2, 82.3, 92.1, 92.0], [0, 0, 0, 0], [0, 0, 0, 0]]
 x_sets = [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]
 
 adjusted_x_sets = [[x + 1 for x in x_set] for x_set in x_sets]
