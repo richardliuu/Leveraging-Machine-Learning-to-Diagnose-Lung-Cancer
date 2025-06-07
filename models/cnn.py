@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from tensorflow.keras.utils import to_categorical # type: ignore 
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense # type: ignore
@@ -56,6 +56,7 @@ def cross_validation(data_array):
     all_conf_matrices = []
     fold_details = []
     all_histories = []
+    all_roc_aucs = []
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(X, y_encoded, groups=groups)):
         print(f"\n--- Fold {fold + 1}/{k} ---")
@@ -123,6 +124,19 @@ def cross_validation(data_array):
         c_matrix = confusion_matrix(y_true_classes, y_pred)
         print("Confusion Matrix:\n", c_matrix)
 
+        try:
+            auc = roc_auc_score(y_test_fold, y_pred_prob, multi_class='ovr', average='macro')
+            print(f"ROC AUC Score (macro): {auc:.4f}")
+        except Exception as e:
+            print("ROC AUC could not be computed:", str(e))
+            auc = np.nan
+
+        y_pred_prob = model.predict(X_test_fold, verbose=0)
+        roc_auc = roc_auc_score(y_test_fold, y_pred_prob, average='macro', multi_class='ovo')
+        all_roc_aucs.append(roc_auc)
+
+
+        all_roc_aucs.append(auc)
         all_reports.append(report)
         all_conf_matrices.append(c_matrix)
         fold_details.append({
@@ -136,9 +150,9 @@ def cross_validation(data_array):
         })
         all_histories.append(history.history)
 
-    return all_reports, all_conf_matrices, fold_details, all_histories
+    return all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs
 
-def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories):
+def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs):
     print(f"\n{'=' * 60}\nCROSS-VALIDATION SUMMARY\n{'=' * 60}")
 
     accuracies = [report['accuracy'] for report in all_reports]

@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import GroupKFold, train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Input # type: ignore
 from tensorflow.keras.utils import to_categorical # type: ignore
@@ -68,6 +68,7 @@ def verify_data_integrity(df):
 
 def run_proper_cross_validation(df):
     global history 
+    global y_train_final
     # Limit samples per patient if specified
     MAX_SAMPLES_PER_PATIENT = None  # Set to number if you want to limit, or None to disable
     
@@ -94,6 +95,7 @@ def run_proper_cross_validation(df):
     all_conf_matrices = []
     fold_details = []
     all_histories = []
+    all_roc_aucs = [] 
     
     for fold, (train_idx, test_idx) in enumerate(group_kfold.split(X, y, groups)):
         print(f"\n{'='*50}")
@@ -222,8 +224,19 @@ def run_proper_cross_validation(df):
         c_matrix = confusion_matrix(y_test_encoded, y_pred)
         print("Confusion Matrix:")
         print(c_matrix)
+
+        try:
+            auc = roc_auc_score(y_test_cat, y_pred_prob, multi_class='ovr', average='macro')
+            print(f"ROC AUC Score (macro): {auc:.4f}")
+        except Exception as e:
+            print("ROC AUC could not be computed:", str(e))
+            auc = np.nan
+
+        y_pred_prob = model.predict(X_test_scaled, verbose=0)
+        roc_auc = roc_auc_score(y_test_cat, y_pred_prob, average='macro', multi_class='ovo')
+        all_roc_aucs.append(roc_auc)
         
-        # Store results
+        all_roc_aucs.append(auc)
         all_reports.append(report)
         all_conf_matrices.append(c_matrix)
         all_histories.append(history.history)
@@ -238,15 +251,16 @@ def run_proper_cross_validation(df):
             'epochs_trained': len(history.history['loss'])
         })
     
-    return all_reports, all_conf_matrices, fold_details, all_histories
+    return all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs
 
-def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories):
+"""def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories):
     print(f"\n{'='*60}")
     print("CROSS-VALIDATION SUMMARY")
     print(f"{'='*60}")
     
     # Per-fold summary
     accuracies = [report['accuracy'] for report in all_reports]
+    roc_auc = []
 
     # Trying to plot epochs
     epochs_trained = [fold['epochs_trained'] for fold in fold_details]
@@ -316,6 +330,104 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
         print("HIGH variance across folds - results may not be stable")
     else:
         print("Low variance across folds - stable results")
+"""
+
+def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs):
+    print(f"\n{'='*60}")
+    print("CROSS-VALIDATION SUMMARY")
+    print(f"{'='*60}")
+    
+    # Per-fold summary
+    accuracies = [report['accuracy'] for report in all_reports]
+    epochs_trained = [fold['epochs_trained'] for fold in fold_details]
+    
+    print("Per-fold results:")
+    for i, (acc, details) in enumerate(zip(accuracies, fold_details)):
+        print(f"Fold {i+1}: {acc:.4f} accuracy "
+              f"({details['test_patients']} patients, {details['test_samples']} samples, "
+              f"{details['epochs_trained']} epochs)")
+
+    for i, history in enumerate(all_histories):
+        plt.figure(figsize=(12, 4))
+        plt.suptitle(f"Fold {i+1} Performance", fontsize=14)
+        
+        plt.subplot(1, 2, 1)
+        plt.plot(history['loss'], label='Train Loss')
+        plt.plot(history['val_loss'], label='Val Loss')
+        plt.title('Loss Curve')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+
+        plt.subplot(1, 2, 2)
+        plt.plot(history['accuracy'], label='Train Acc')
+        plt.plot(history['val_accuracy'], label='Val Acc')
+        plt.title('Accuracy Curve')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+    
+    avg_accuracy = np.mean(accuracies)
+    std_accuracy = np.std(accuracies)
+    
+    print(f"\nOverall Performance:")
+    print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
+    print(f"Min Accuracy:  {min(accuracies):.4f}")
+    print(f"Max Accuracy:  {max(accuracies):.4f}")
+    
+    class_0_f1 = [report['0']['f1-score'] for report in all_reports]
+    class_1_f1 = [report['1']['f1-score'] for report in all_reports]
+    
+    print(f"\nClass-wise F1-scores:")
+    print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
+    print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
+    
+    avg_conf_matrix = np.mean(all_conf_matrices, axis=0)
+    print(f"\nAverage Confusion Matrix:")
+    print(np.round(avg_conf_matrix).astype(int))
+    
+    if avg_accuracy > 0.95:
+        print("VERY HIGH accuracy")
+    elif avg_accuracy > 0.85:
+        print("HIGH accuracy")
+    elif avg_accuracy > 0.7:
+        print("Good accuracy")
+    else:
+        print("Moderate accuracy (Model tuning)")
+
+    if std_accuracy > 0.1:
+        print("HIGH variance across folds - results may not be stable")
+    else:
+        print("Low variance across folds - stable results")
+
+    # ROC AUC Line Plot
+    if all_roc_aucs:
+        auc_scores = [score for score in all_roc_aucs if not np.isnan(score)]
+        if auc_scores:
+            mean_auc = np.mean(auc_scores)
+            std_auc = np.std(auc_scores)
+
+            print(f"\nMean ROC AUC (macro): {mean_auc:.4f} ± {std_auc:.4f}")
+
+            plt.figure(figsize=(8, 5))
+            plt.plot(range(1, len(auc_scores) + 1), auc_scores, marker='o', linestyle='-',
+                     color='blue', label='ROC AUC per Fold')
+            plt.axhline(mean_auc, color='red', linestyle='--', label=f'Mean AUC = {mean_auc:.4f}')
+            plt.fill_between(range(1, len(auc_scores) + 1),
+                             [mean_auc - std_auc] * len(auc_scores),
+                             [mean_auc + std_auc] * len(auc_scores),
+                             color='red', alpha=0.2, label='±1 STD')
+            plt.xticks(range(1, len(auc_scores) + 1))
+            plt.xlabel("Fold")
+            plt.ylabel("ROC AUC (macro)")
+            plt.title("ROC AUC per Fold (Macro)")
+            plt.legend()
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
 
 # MAIN EXECUTION
 if __name__ == "__main__":
@@ -337,11 +449,11 @@ if __name__ == "__main__":
     results = run_proper_cross_validation(df)
     
     if results[0] is not None:  # If no critical errors
-        all_reports, all_conf_matrices, fold_details, all_histories = results
+        all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs = results
         
         # Step 3: Summarize results
         print(f"\nResults Summary")
-        summarize_results(all_reports, all_conf_matrices, fold_details, all_histories)    
+        summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
         
