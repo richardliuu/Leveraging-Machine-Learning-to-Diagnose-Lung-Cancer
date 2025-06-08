@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import os 
+import random
+import tensorflow as tf 
 from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
@@ -8,6 +11,16 @@ from tensorflow.keras.utils import to_categorical # type: ignore
 from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau # type: ignore
+
+os.environ['PYTHONHASHSEED'] = '42'
+os.environ['TF_DETERMINISTIC_OPS'] = '1'
+
+SEED = 42
+np.random.seed(SEED)
+random.seed(SEED)
+tf.random.set_seed(SEED)
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 
 # ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
 
@@ -70,7 +83,7 @@ def cross_validation(data_array):
         y_train_fold = to_categorical(y_train_fold_int, num_classes=num_classes)
         y_test_fold = to_categorical(y_test_fold_int, num_classes=num_classes)
 
-        gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=42)
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=SEED)
         val_train_idx, val_idx = next(gss.split(X_train_fold, y_train_fold_int, groups=groups_train))
 
         X_train_final, X_val_final = X_train_fold[val_train_idx], X_train_fold[val_idx]
@@ -127,15 +140,15 @@ def cross_validation(data_array):
         print("Confusion Matrix:\n", c_matrix)
 
         try:
-            auc = roc_auc_score(y_test_fold, y_pred_prob, multi_class='ovr', average='macro')
-            print(f"ROC AUC Score (macro): {auc:.4f}")
+            # Convert one-hot to labels and select positive class probability
+            y_true = np.argmax(y_test_fold, axis=1)
+            y_score = y_pred_prob[:, 1]
+
+            auc = roc_auc_score(y_true, y_score)
+            print(f"ROC AUC Score: {auc:.4f}")
         except Exception as e:
             print("ROC AUC could not be computed:", str(e))
             auc = np.nan
-
-        y_pred_prob = model.predict(X_test_fold, verbose=0)
-        roc_auc = roc_auc_score(y_test_fold, y_pred_prob, average='macro', multi_class='ovo')
-        all_roc_aucs.append(roc_auc)
 
 
         all_roc_aucs.append(auc)

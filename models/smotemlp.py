@@ -1,5 +1,9 @@
 import pandas as pd
 import numpy as np
+import tensorflow as tf 
+import matplotlib.pyplot as plt
+import random
+import os
 from sklearn.model_selection import GroupKFold, train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
@@ -9,7 +13,16 @@ from tensorflow.keras.utils import to_categorical # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau # type: ignore
 from imblearn.combine import SMOTEENN
 from collections import Counter
-import matplotlib.pyplot as plt
+
+os.environ['PYTHONHASHSEED'] = '42'
+os.environ['TF_DETERMINISTIC_OPS'] = '1'
+
+SEED = 42
+np.random.seed(SEED)
+random.seed(SEED)
+tf.random.set_seed(SEED)
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 
 # ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
 
@@ -77,7 +90,7 @@ def run_proper_cross_validation(df):
     if MAX_SAMPLES_PER_PATIENT is not None:
         print(f"Limiting to max {MAX_SAMPLES_PER_PATIENT} samples per patient...")
         def limit_samples(group):
-            return group.sample(n=min(len(group), MAX_SAMPLES_PER_PATIENT), random_state=42)
+            return group.sample(n=min(len(group), MAX_SAMPLES_PER_PATIENT), random_state=SEED)
         df = df.groupby('patient_id').apply(limit_samples).reset_index(drop=True)
         print(f"Dataset size after limiting: {len(df)} samples")
     
@@ -144,7 +157,7 @@ def run_proper_cross_validation(df):
         
         # Apply SMOTEENN only to training data
         print("Applying SMOTEENN to training data")
-        smote = SMOTEENN(random_state=42)
+        smote = SMOTEENN(random_state=SEED)
         X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train_encoded)
         
         resampled_dist = Counter(y_train_resampled)
@@ -157,7 +170,7 @@ def run_proper_cross_validation(df):
         # Create validation split from resampled training data
         X_train_final, X_val_final, y_train_final, y_val_final = train_test_split(
             X_train_resampled, y_train_cat, test_size=0.1, 
-            stratify=y_train_resampled, random_state=42
+            stratify=y_train_resampled, random_state=SEED
         )
         
         print(f"Final training set: {len(X_train_final)} samples")
@@ -228,16 +241,16 @@ def run_proper_cross_validation(df):
         print(c_matrix)
 
         try:
-            auc = roc_auc_score(y_test_cat, y_pred_prob, multi_class='ovr', average='macro')
-            print(f"ROC AUC Score (macro): {auc:.4f}")
+            # Convert one-hot to labels and select positive class probability
+            y_true = np.argmax(y_test_cat, axis=1)
+            y_score = y_pred_prob[:, 1]
+
+            auc = roc_auc_score(y_true, y_score)
+            print(f"ROC AUC Score: {auc:.4f}")
         except Exception as e:
             print("ROC AUC could not be computed:", str(e))
             auc = np.nan
 
-        y_pred_prob = model.predict(X_test_scaled, verbose=0)
-        roc_auc = roc_auc_score(y_test_cat, y_pred_prob, average='macro', multi_class='ovo')
-        all_roc_aucs.append(roc_auc)
-        
         all_roc_aucs.append(auc)
         all_reports.append(report)
         all_conf_matrices.append(c_matrix)
@@ -254,85 +267,6 @@ def run_proper_cross_validation(df):
         })
     
     return all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs
-
-"""def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories):
-    print(f"\n{'='*60}")
-    print("CROSS-VALIDATION SUMMARY")
-    print(f"{'='*60}")
-    
-    # Per-fold summary
-    accuracies = [report['accuracy'] for report in all_reports]
-    roc_auc = []
-
-    # Trying to plot epochs
-    epochs_trained = [fold['epochs_trained'] for fold in fold_details]
-    
-    print("Per-fold results:")
-    for i, (acc, details) in enumerate(zip(accuracies, fold_details)):
-        print(f"Fold {i+1}: {acc:.4f} accuracy "
-              f"({details['test_patients']} patients, {details['test_samples']} samples, "
-              f"{details['epochs_trained']} epochs)")
-
-    for i, history in enumerate(all_histories):
-        plt.figure(figsize=(12, 4))
-        plt.suptitle(f"Fold {i+1} Performance", fontsize=14)
-        
-        plt.subplot(1, 2, 1)
-        plt.plot(history['loss'], label='Train Loss')
-        plt.plot(history['val_loss'], label='Val Loss')
-        plt.title('Loss Curve')
-        plt.xlabel('Epoch')
-        plt.ylabel('Loss')
-        plt.legend()
-
-        plt.subplot(1, 2, 2)
-        plt.plot(history['accuracy'], label='Train Acc')
-        plt.plot(history['val_accuracy'], label='Val Acc')
-        plt.title('Accuracy Curve')
-        plt.xlabel('Epoch')
-        plt.ylabel('Accuracy')
-        plt.legend()
-
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
-        plt.show()
-        
-    # Overall statistics
-    avg_accuracy = np.mean(accuracies)
-    std_accuracy = np.std(accuracies)
-    
-    print(f"\nOverall Performance:")
-    print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
-    print(f"Min Accuracy:  {min(accuracies):.4f}")
-    print(f"Max Accuracy:  {max(accuracies):.4f}")
-    
-    # Class-wise performance
-    class_0_f1 = [report['0']['f1-score'] for report in all_reports]
-    class_1_f1 = [report['1']['f1-score'] for report in all_reports]
-    
-    print(f"\nClass-wise F1-scores:")
-    print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
-    print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
-    
-    # Average confusion matrix
-    avg_conf_matrix = np.mean(all_conf_matrices, axis=0)
-    print(f"\nAverage Confusion Matrix:")
-    print(np.round(avg_conf_matrix).astype(int))
-    
-    # Performance assessment
-    if avg_accuracy > 0.95:
-        print("VERY HIGH accuracy")
-    elif avg_accuracy > 0.85:
-        print("HIGH accuracy")
-    elif avg_accuracy > 0.7:
-        print("Good accuracy")
-    else:
-        print("Moderate accuracy (Model tuning)")
-    
-    if std_accuracy > 0.1:
-        print("HIGH variance across folds - results may not be stable")
-    else:
-        print("Low variance across folds - stable results")
-"""
 
 def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs):
     print(f"\n{'='*60}")
@@ -458,5 +392,3 @@ if __name__ == "__main__":
         summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
-        
-    
