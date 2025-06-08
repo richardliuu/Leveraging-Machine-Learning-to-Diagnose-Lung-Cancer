@@ -2,4 +2,11 @@
 
 This GitHub repository contains models trained on a dataset provided by (insert researcher name and affiliations)
 
-# Results 
+# Models 
+
+- Multilayer-Perceptron
+
+
+
+
+- Convolutional Neural Network
