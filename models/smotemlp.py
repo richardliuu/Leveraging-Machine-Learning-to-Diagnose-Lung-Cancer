@@ -11,6 +11,8 @@ from imblearn.combine import SMOTEENN
 from collections import Counter
 import matplotlib.pyplot as plt
 
+# ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
+
 def verify_data_integrity(df):
     print("=== DATA INTEGRITY CHECKS ===")
     

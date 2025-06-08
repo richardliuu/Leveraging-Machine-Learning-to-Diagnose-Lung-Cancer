@@ -10,7 +10,7 @@ from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import Dense, Dropout # type: ignore
 import matplotlib.pyplot as plt 
 
-# Needs some fix because TensorFlow is outdated or something 
+# ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
 
 df = pd.read_csv("voice_features_log.csv")
 

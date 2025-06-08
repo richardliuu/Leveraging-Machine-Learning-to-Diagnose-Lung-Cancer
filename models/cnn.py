@@ -9,6 +9,8 @@ from tensorflow.keras.models import Sequential # type: ignore
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Dropout, Flatten, Dense # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau # type: ignore
 
+# ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
+
 def verify_data_integrity_from_array(data_array):
     rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
     df_meta = pd.DataFrame(rows)
