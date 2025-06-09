@@ -1,15 +1,6 @@
-# This file will be used to compare the models' performance on Group K fold-cross validation
-# Very import that all the models conduct the same cross validation or else the results are not right 
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-
-# Include legend 
-# Models: 1, 2, 3, 4 for each corresponding bracket 
-# Model 1 Done (SMOTEMLP):
-# Model 2 Done (CNN):  
-
-
 
 y_sets = [[82.7, 81.0, 87.2, 95.1], [83.2, 82.3, 92.1, 92.0], [0, 0, 0, 0], [0, 0, 0, 0]]
 x_sets = [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3]]
