@@ -1,1 +1,5 @@
-The code in this repository needs to be cleaned up 
+# Future Objectives
+- Cleaning up the code in the repository
+- Removing graphing from models 
+- Proper model naming
+- Detailed description in README
