@@ -24,20 +24,10 @@ tf.random.set_seed(SEED)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
-def verify_data_integrity(df):
-    
+def data_integrity(df):
     # Check for duplicate samples
     feature_cols = df.drop(columns=['segment', 'cancer_stage', 'patient_id']).columns
     duplicates = df.duplicated(subset=feature_cols)
-    print(f"Duplicate feature rows: {duplicates.sum()}")
-    
-    if duplicates.sum() > 0:
-        print("WARNING: Duplicate samples found - could inflate performance!")
-        # Show some examples
-        dup_rows = df[duplicates]
-        print(f"Example duplicate patients: {dup_rows['patient_id'].unique()[:5]}")
-    else:
-        print("No duplicate feature rows found")
     
     # Check patient-label consistency
     patient_labels = df.groupby('patient_id')['cancer_stage'].nunique()
@@ -52,21 +42,6 @@ def verify_data_integrity(df):
             patient_data = df[df['patient_id'] == first_patient][['patient_id', 'cancer_stage']]
             print(f"Example - Patient {first_patient}:")
             print(patient_data['cancer_stage'].value_counts())
-    else:
-        print("All patients have consistent labels")
-    
-    # Check class balance
-    print(f"\nOverall class distribution:")
-    class_counts = df['cancer_stage'].value_counts()
-    print(class_counts)
-    print(f"Class ratio: {class_counts.iloc[0]/class_counts.iloc[1]:.2f}:1")
-    
-    # Check samples per patient
-    samples_per_patient = df.groupby('patient_id').size()
-    print(f"\nSamples per patient statistics:")
-    print(f"Mean: {samples_per_patient.mean():.1f}, Std: {samples_per_patient.std():.1f}")
-    print(f"Min: {samples_per_patient.min()}, Max: {samples_per_patient.max()}")
-    print(f"Median: {samples_per_patient.median():.1f}")
     
     # Patient-level class distribution
     patient_df = df.groupby('patient_id').agg({
@@ -78,11 +53,9 @@ def verify_data_integrity(df):
     
     return duplicates.sum() == 0 and len(inconsistent_patients) == 0
 
-
-def run_proper_cross_validation(df):
+def lung_cancer_model(df):
     global history 
     global y_train_final
-    # Limit samples per patient if specified
     
     # Prepare features and labels
     X = df.drop(columns=['segment', 'cancer_stage', 'patient_id'])
@@ -103,9 +76,6 @@ def run_proper_cross_validation(df):
     all_roc_aucs = [] 
     
     for fold, (train_idx, test_idx) in enumerate(group_kfold.split(X, y, groups)):
-        print(f"\n{'='*50}")
-        print(f"FOLD {fold+1}/4")
-        print(f"{'='*50}")
         
         # Split data
         X_train_fold = X.iloc[train_idx]
@@ -116,22 +86,11 @@ def run_proper_cross_validation(df):
         # Verify no patient leakage
         train_patients = set(df.iloc[train_idx]['patient_id'])
         test_patients = set(df.iloc[test_idx]['patient_id'])
-        
-        overlap = train_patients.intersection(test_patients)
-        if overlap:
-            print(f"CRITICAL: Patient leakage detected!")
-            print(f"Overlapping patients: {list(overlap)[:5]}...")
-            return None, None
-        else:
-            print("No patient overlap between train/test")
-        
-        print(f"Train: {len(train_patients)} patients, {len(X_train_fold)} samples")
-        print(f"Test:  {len(test_patients)} patients, {len(X_test_fold)} samples")
-        
+
         # Fit preprocessing ONLY on training data 
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train_fold)
-        X_test_scaled = scaler.transform(X_test_fold)  # Only transform, don't fit!
+        X_test_scaled = scaler.transform(X_test_fold)
         
         # Encode labels (fit only on training data)
         le = LabelEncoder()
@@ -140,18 +99,9 @@ def run_proper_cross_validation(df):
         
         num_classes = len(le.classes_)
         
-        train_class_dist = Counter(y_train_encoded)
-        test_class_dist = Counter(y_test_encoded)
-        print(f"Train class distribution: {dict(train_class_dist)}")
-        print(f"Test class distribution:  {dict(test_class_dist)}")
-        
         # Apply SMOTEENN only to training data
-        print("Applying SMOTEENN to training data")
         smote = SMOTEENN(random_state=SEED)
         X_train_resampled, y_train_resampled = smote.fit_resample(X_train_scaled, y_train_encoded)
-        
-        resampled_dist = Counter(y_train_resampled)
-        print(f"After SMOTEENN: {dict(resampled_dist)}")
         
         # Convert to categorical
         y_train_cat = to_categorical(y_train_resampled, num_classes=num_classes)
@@ -163,9 +113,6 @@ def run_proper_cross_validation(df):
             stratify=y_train_resampled, random_state=SEED
         )
         
-        print(f"Final training set: {len(X_train_final)} samples")
-        print(f"Validation set: {len(X_val_final)} samples")
-
         # Build model (fresh for each fold)
         model = Sequential([
             Input(shape=(X_train_final.shape[1],)),
@@ -192,7 +139,6 @@ def run_proper_cross_validation(df):
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
         
-        # Callbacks
         early_stopping = EarlyStopping(
             monitor='val_loss', 
             patience=5, 
@@ -315,20 +261,6 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
     print(f"\nAverage Confusion Matrix:")
     print(np.round(avg_conf_matrix).astype(int))
     
-    if avg_accuracy > 0.95:
-        print("VERY HIGH accuracy")
-    elif avg_accuracy > 0.85:
-        print("HIGH accuracy")
-    elif avg_accuracy > 0.7:
-        print("Good accuracy")
-    else:
-        print("Moderate accuracy (Model tuning)")
-
-    if std_accuracy > 0.1:
-        print("HIGH variance across folds - results may not be stable")
-    else:
-        print("Low variance across folds - stable results")
-
     # ROC AUC Line Plot
     if all_roc_aucs:
         auc_scores = [score for score in all_roc_aucs if not np.isnan(score)]
@@ -355,30 +287,16 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
             plt.tight_layout()
             plt.show()
 
-# MAIN EXECUTION
 if __name__ == "__main__":
-    # Load dataset
-    print("Loading dataset")
     df = pd.read_csv("data/binary_features_log.csv")
-    print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
-    # Step 1: Verify data integrity
-    print("\nStep 1: Data Integrity Check")
-    is_clean = verify_data_integrity(df)
+    is_clean = data_integrity(df)
+    results = lung_cancer_model(df)
     
-    if not is_clean:
-        print("\nDATA QUALITY ISSUES DETECTED!")
-        print("Results may be unreliable")
-    
-    # Step 2: Run proper cross-validation
-    print(f"\nCross-Validation")
-    results = run_proper_cross_validation(df)
-    
-    if results[0] is not None:  # If no critical errors
+    if results[0] is not None: 
         all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs = results
         
         # Step 3: Summarize results
-        print(f"\nResults Summary")
         summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
