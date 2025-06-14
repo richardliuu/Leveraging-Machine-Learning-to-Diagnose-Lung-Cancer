@@ -61,12 +61,7 @@ def lung_cancer_model(df):
     X = df.drop(columns=['segment', 'cancer_stage', 'patient_id'])
     y = df['cancer_stage']
     groups = df['patient_id']  # Group by patient ID
-    
-    print(f"Total samples: {len(df)}")
-    print(f"Total patients: {df['patient_id'].nunique()}")
-    print(f"Features: {X.shape[1]}")
-    
-    # Use GroupKFold for proper patient-level splitting
+
     group_kfold = GroupKFold(n_splits=4)
     
     all_reports = []
@@ -205,9 +200,6 @@ def lung_cancer_model(df):
     return all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs
 
 def summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs):
-    print(f"\n{'='*60}")
-    print("CROSS-VALIDATION SUMMARY")
-    print(f"{'='*60}")
     
     # Per-fold summary
     accuracies = [report['accuracy'] for report in all_reports]
@@ -293,10 +285,5 @@ if __name__ == "__main__":
     is_clean = data_integrity(df)
     results = lung_cancer_model(df)
     
-    if results[0] is not None: 
-        all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs = results
-        
-        # Step 3: Summarize results
-        summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs)    
-    else:
-        print(f"\nCross-validation failed due to data leakage!")
+    all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs = results
+    summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs)    
