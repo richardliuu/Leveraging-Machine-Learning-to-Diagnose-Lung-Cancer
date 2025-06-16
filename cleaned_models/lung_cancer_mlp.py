@@ -12,7 +12,7 @@ from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Input
 from tensorflow.keras.utils import to_categorical 
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau 
 from imblearn.combine import SMOTEENN
-from collections import Counter
+
 
 os.environ['PYTHONHASHSEED'] = '42'
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
