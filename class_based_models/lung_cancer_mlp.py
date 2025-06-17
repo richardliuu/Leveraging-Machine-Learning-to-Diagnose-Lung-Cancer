@@ -131,17 +131,19 @@ class DataHandling:
         return self.X, self.y, self.X_train_fold, self.y_train_fold, self.X_test_fold, self.y_test_fold
 
 class LungCancerMLP:
-    def __init__(self, X_train, num_classes, feature_cols):
-        self.X_train_final = X_train
+    def __init__(self, X_train_final, num_classes):
+        self.X_train_final = X_train_final
         self.num_classes = num_classes 
-        self.model = self._buildmodel(X_train, num_classes)
+        self.model = self._buildmodel(X_train_final, num_classes)
         self.history = None
         self.auc = roc_aucs
         self.report = reports
         self.c_matrix = conf_matrices
         self.histories = histories 
         self.details = details
-        self.feature_cols = feature_cols
+        self.accuracies = None
+        self.epochs_trained = None
+        self.target_names = None
 
     def _buildmodel(self, X_train_final, num_classes):
         model = Sequential([
@@ -170,6 +172,12 @@ class LungCancerMLP:
                       metrics=['accuracy'])
 
     def train(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, epochs=50, batch_size=16):
+        self.X_test_fold = X_train_fold
+        self.X_test_fold = X_test_fold
+        self.y_train_final = y_train_final 
+        self.X_val_final = X_val_final
+        self.y_val_final = y_val_final
+
         early_stopping = EarlyStopping(
             monitor='val_loss', 
             patience=5, 
@@ -196,8 +204,8 @@ class LungCancerMLP:
             'fold': fold + 1,
             'train_patients': len(self.train_patients),
             'test_patients': len(self.test_patients),
-            'train_samples': len(X_train_fold),
-            'test_samples': len(X_test_fold),
+            'train_samples': len(self.X_train_fold),
+            'test_samples': len(self.X_test_fold),
             'accuracy': self.report['accuracy'],
             'epochs_trained': len(self.history.history['loss'])
         })
@@ -210,23 +218,110 @@ class LungCancerMLP:
         return self.reports, self.conf_matrices, self.details, self.histories, self.roc_aucs, self.history
 
     def evaluate(self, X_test, y_test, y_pred, y_test_encoded):
-        target_names = [str(cls) for cls in self.encoder.classes_]
+        self.y_pred = y_pred 
+        self.y_test_encoded = y_test_encoded
+        self.X_test = X_test
+        self.y_test = y_test 
+
+        self.target_names = [str(cls) for cls in self.encoder.classes_]
         self.report = classification_report(
-            y_test_encoded, 
-            y_pred, 
-            target_names=target_names, 
+            self.y_test_encoded, 
+            self.y_pred, 
+            target_names=self.target_names, 
             output_dict=True
         )
 
-        return self.model.evaluate(X_test, y_test, verbose=0)
+        return self.model.evaluate(self.X_test, self.y_test, verbose=0), self.report
+    
+    def train(self):
+        self.group_kfold = 4
+        for fold, (train_idx, test_idx) in enumerate(self.group_kfold.split(X, y, groups)):
+            pass
     
     def predict(self, X):
         return self.model.predict(X)
     
-    def summary(self, ):
+    def summary(self):
+        accuracies = [report['accuracy'] for report in reports]
+        epochs_trained = [fold['epochs_trained'] for fold in details]
+        
+        print("Per-fold results:")
+        for i, (acc, details) in enumerate(zip(accuracies, details)):
+            print(f"Fold {i+1}: {acc:.4f} accuracy "
+                f"({details['test_patients']} patients, {details['test_samples']} samples, "
+                f"{details['epochs_trained']} epochs)")
+
+        for i, history in enumerate(histories):
+            plt.figure(figsize=(12, 4))
+            plt.suptitle(f"Fold {i+1} Performance", fontsize=14)
+            
+            plt.subplot(1, 2, 1)
+            plt.plot(history['loss'], label='Train Loss')
+            plt.plot(history['val_loss'], label='Val Loss')
+            plt.title('Loss Curve')
+            plt.xlabel('Epoch')
+            plt.ylabel('Loss')
+            plt.legend()
+
+            plt.subplot(1, 2, 2)
+            plt.plot(history['accuracy'], label='Train Acc')
+            plt.plot(history['val_accuracy'], label='Val Acc')
+            plt.title('Accuracy Curve')
+            plt.xlabel('Epoch')
+            plt.ylabel('Accuracy')
+            plt.legend()
+
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
+            plt.show()
+        
+        avg_accuracy = np.mean(accuracies)
+        std_accuracy = np.std(accuracies)
+        
+        print(f"\nOverall Performance:")
+        print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
+        print(f"Min Accuracy:  {min(accuracies):.4f}")
+        print(f"Max Accuracy:  {max(accuracies):.4f}")
+        
+        class_0_f1 = [report['0']['f1-score'] for report in reports]
+        class_1_f1 = [report['1']['f1-score'] for report in reports]
+        
+        print(f"\nClass-wise F1-scores:")
+        print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
+        print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
+        
+        avg_conf_matrix = np.mean(conf_matrices, axis=0)
+        print(f"\nAverage Confusion Matrix:")
+        print(np.round(avg_conf_matrix).astype(int))
+        
+        auc_scores = [score for score in roc_aucs if not np.isnan(score)]
+        mean_auc = np.mean(auc_scores)
+        std_auc = np.std(auc_scores)
+
+        print(f"\nMean ROC AUC (macro): {mean_auc:.4f} ± {std_auc:.4f}")
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(range(1, len(auc_scores) + 1), auc_scores, marker='o', linestyle='-',
+                color='blue', label='ROC AUC per Fold')
+        plt.axhline(mean_auc, color='red', linestyle='--', label=f'Mean AUC = {mean_auc:.4f}')
+        plt.fill_between(range(1, len(auc_scores) + 1),
+                        [mean_auc - std_auc] * len(auc_scores),
+                        [mean_auc + std_auc] * len(auc_scores),
+                        color='red', alpha=0.2, label='±1 STD')
+        plt.xticks(range(1, len(auc_scores) + 1))
+        plt.xlabel("Fold")
+        plt.ylabel("ROC AUC (macro)")
+        plt.title("ROC AUC per Fold (Macro)")
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
         return self.model.summary()
     
-for fold, (train_idx, test_idx) in enumerate(group_kfold.split(X, y, groups)):
+
+model = LungCancerMLP()
+model.train()
+model.summary()
 
     
 
