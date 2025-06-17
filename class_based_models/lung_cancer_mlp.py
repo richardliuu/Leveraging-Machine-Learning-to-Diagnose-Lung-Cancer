@@ -36,8 +36,6 @@ class DataHandling:
         self.scaler = StandardScaler()
         self.encoder = LabelEncoder()
         self.smote = SMOTEENN(random_state=SEED)
-        self.split = train_test_split()
-        self.categorical = to_categorical()
         self.data = data
 
         # Input and Output
@@ -68,7 +66,7 @@ class DataHandling:
 
         # Resampled training data 
         self.X_train_resampled = None
-        self.y_train_resampled
+        self.y_train_resampled = None
 
         # Data Information
         self.num_classes = None
@@ -117,9 +115,9 @@ class DataHandling:
         self.num_classes = len(self.encoder.classes_)
         self.X_train_resampled, self.y_train_resampled = self.smote.fit_resample(self.X_train_scaled, self.y_train_encoded)
 
-    def categorical(self):
-        self.y_train_cat = self.categorical(self.y_train_resampled, num_classes=self.num_classes)
-        self.y_test_cat = self.categorical(self.y_test_encoded, num_classes=self.num_classes)
+    def put_to_categorical(self):
+        self.y_train_cat = to_categorical(self.y_train_resampled, num_classes=self.num_classes)
+        self.y_test_cat = to_categorical(self.y_test_encoded, num_classes=self.num_classes)
     
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
@@ -170,6 +168,8 @@ class LungCancerMLP:
         model.compile(optimizer='adam',
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
+        
+        return model
 
     def train(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, epochs=50, batch_size=16):
         self.X_test_fold = X_train_fold
@@ -177,6 +177,7 @@ class LungCancerMLP:
         self.y_train_final = y_train_final 
         self.X_val_final = X_val_final
         self.y_val_final = y_val_final
+        self.fold = 
 
         early_stopping = EarlyStopping(
             monitor='val_loss', 
@@ -201,7 +202,7 @@ class LungCancerMLP:
         )
         
         self.details.append({
-            'fold': fold + 1,
+            'fold': self.fold + 1,
             'train_patients': len(self.train_patients),
             'test_patients': len(self.test_patients),
             'train_samples': len(self.X_train_fold),
@@ -217,11 +218,13 @@ class LungCancerMLP:
     
         return self.reports, self.conf_matrices, self.details, self.histories, self.roc_aucs, self.history
 
-    def evaluate(self, X_test, y_test, y_pred, y_test_encoded):
+    def evaluate(self, X_test, y_test, y_pred, y_test_encoded, train_idx, test_idx):
         self.y_pred = y_pred 
         self.y_test_encoded = y_test_encoded
         self.X_test = X_test
         self.y_test = y_test 
+        self.train_idx = train_idx
+        self.test_idx = test_idx
 
         self.target_names = [str(cls) for cls in self.encoder.classes_]
         self.report = classification_report(
@@ -235,8 +238,9 @@ class LungCancerMLP:
     
     def train(self):
         self.group_kfold = 4
-        for fold, (train_idx, test_idx) in enumerate(self.group_kfold.split(X, y, groups)):
-            pass
+        for fold, (self.train_idx, self.test_idx) in enumerate(self.group_kfold.split(X, y, self.groups)):
+            y_pred_prob = model.predict(X_test_scaled, verbose=0)
+            y_pred = np.argmax(y_pred_prob, axis=1)
     
     def predict(self, X):
         return self.model.predict(X)
@@ -318,7 +322,6 @@ class LungCancerMLP:
 
         return self.model.summary()
     
-
 model = LungCancerMLP()
 model.train()
 model.summary()
