@@ -10,9 +10,8 @@ from imblearn.over_sampling import SMOTE  # Changed from SMOTEENN
 from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 
-# ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
-
-# ========= Needs GroupKFold Cross Validation =============
+# =========== Not up to the same standards as the CNN and MLP =============
+# =========== Purely Experimental ==================
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

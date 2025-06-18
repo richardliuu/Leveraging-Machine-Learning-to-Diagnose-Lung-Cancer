@@ -171,13 +171,14 @@ class LungCancerMLP:
         
         return model
 
-    def train(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, epochs=50, batch_size=16):
+    def training_details(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, X, y, fold, epochs=50, batch_size=16):
         self.X_test_fold = X_train_fold
         self.X_test_fold = X_test_fold
         self.y_train_final = y_train_final 
         self.X_val_final = X_val_final
         self.y_val_final = y_val_final
-        self.fold = 
+        self.X = X
+        self.y = y
 
         early_stopping = EarlyStopping(
             monitor='val_loss', 
@@ -202,7 +203,7 @@ class LungCancerMLP:
         )
         
         self.details.append({
-            'fold': self.fold + 1,
+            'fold': fold + 1, # Create a variable/sort it out 
             'train_patients': len(self.train_patients),
             'test_patients': len(self.test_patients),
             'train_samples': len(self.X_train_fold),
@@ -225,6 +226,7 @@ class LungCancerMLP:
         self.y_test = y_test 
         self.train_idx = train_idx
         self.test_idx = test_idx
+        self.encoder = LabelEncoder()
 
         self.target_names = [str(cls) for cls in self.encoder.classes_]
         self.report = classification_report(
@@ -236,18 +238,13 @@ class LungCancerMLP:
 
         return self.model.evaluate(self.X_test, self.y_test, verbose=0), self.report
     
-    def train(self):
-        self.group_kfold = 4
-        for fold, (self.train_idx, self.test_idx) in enumerate(self.group_kfold.split(X, y, self.groups)):
-            y_pred_prob = model.predict(X_test_scaled, verbose=0)
-            y_pred = np.argmax(y_pred_prob, axis=1)
-    
     def predict(self, X):
+        
         return self.model.predict(X)
     
     def summary(self):
         accuracies = [report['accuracy'] for report in reports]
-        epochs_trained = [fold['epochs_trained'] for fold in details]
+        epochs_trained = [fold['epochs_trained'] for fold in details] # May need to create a variable for this 
         
         print("Per-fold results:")
         for i, (acc, details) in enumerate(zip(accuracies, details)):
@@ -322,16 +319,29 @@ class LungCancerMLP:
 
         return self.model.summary()
     
-model = LungCancerMLP()
-model.train()
+def pipeline(self, handler):
+        gkf = GroupKFold(n_splits=4)
+        data = pd.read_csv("data/binary_features_log.csv")
+
+        for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)): # From datahandling class 
+            handler.split(self.X, self.y, train_idx, test_idx)
+            handler.transform()
+            handler.put_to_categorical()
+            handler.validation_split()
+
+            model = LungCancerMLP(handler.X_train, handler.num_classes)
+            model.training_details(
+                handler.X_test_scaled, handler.X_train_scaled,
+                handler.X_train, handler.y_train,
+                handler.X_val, handler.y_val,
+                handler.X, handler.y_fold
+            )
+            
+            model.evaluate(handler.X_test_scaled, handler.y_test_cat, handler.y_test_encoded, train_idx, test_idx)
+
+handler = DataHandling()
+model = LungCancerMLP(handler.X_train_final, handler.num_classes)
+
 model.summary()
 
-    
-
-
-    
-
-    
-
-        
-    
+y_pred = np.argmax(model.predict(handler.X_test_scaled), axis=1)
