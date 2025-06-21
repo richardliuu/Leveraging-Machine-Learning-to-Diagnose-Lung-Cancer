@@ -103,9 +103,22 @@ def cross_validation(data_array):
             Dense(num_classes, activation='softmax')
         ])
 
-        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-        lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
+        model.compile(optimizer='adam', 
+                      loss='categorical_crossentropy', 
+                      metrics=['accuracy']
+                      )
+        
+        early_stopping = EarlyStopping(
+            monitor='val_loss', 
+            patience=5, 
+            restore_best_weights=True
+            )
+        lr_schedule = ReduceLROnPlateau(
+            monitor='val_loss', 
+            factor=0.1, 
+            patience=3, 
+            verbose=1
+            )
 
         history = model.fit(
             X_train_final, y_train_final,
