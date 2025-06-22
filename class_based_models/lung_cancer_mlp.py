@@ -27,7 +27,7 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 reports = []
 conf_matrices = []
 details = []
-histories = []
+history = []
 roc_aucs = [] 
 
 class DataHandling:
@@ -137,7 +137,6 @@ class LungCancerMLP:
         self.auc = roc_aucs
         self.report = reports
         self.c_matrix = conf_matrices
-        self.histories = histories 
         self.details = details
         self.accuracies = None
         self.epochs_trained = None
@@ -203,7 +202,7 @@ class LungCancerMLP:
         )
         
         self.details.append({
-            'fold': fold + 1, # Create a variable/sort it out 
+            'fold': fold + 1, 
             'train_patients': len(self.train_patients),
             'test_patients': len(self.test_patients),
             'train_samples': len(self.X_train_fold),
@@ -215,9 +214,9 @@ class LungCancerMLP:
         roc_aucs.append(self.auc)
         reports.append(self.report)
         conf_matrices.append(self.c_matrix)
-        histories.append(self.history.history)
+        history.append(self.history.history)
     
-        return self.reports, self.conf_matrices, self.details, self.histories, self.roc_aucs, self.history
+        return self.reports, self.conf_matrices, self.details, self.roc_aucs, self.history
 
     def evaluate(self, X_test, y_test, y_pred, y_test_encoded, train_idx, test_idx):
         self.y_pred = y_pred 
@@ -238,7 +237,6 @@ class LungCancerMLP:
         return self.model.evaluate(self.X_test, self.y_test, verbose=0), self.report
     
     def predict(self, X):
-        
         return self.model.predict(X)
     
     def summary(self):
@@ -251,7 +249,7 @@ class LungCancerMLP:
                 f"({details['test_patients']} patients, {details['test_samples']} samples, "
                 f"{details['epochs_trained']} epochs)")
 
-        for i, history in enumerate(histories):
+        for i, history in enumerate(history):
             plt.figure(figsize=(12, 4))
             plt.suptitle(f"Fold {i+1} Performance", fontsize=14)
             
