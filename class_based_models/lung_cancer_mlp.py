@@ -226,9 +226,8 @@ class LungCancerMLP:
         self.y_test = y_test 
         self.train_idx = train_idx
         self.test_idx = test_idx
-        self.encoder = LabelEncoder()
 
-        self.target_names = [str(cls) for cls in self.encoder.classes_]
+        self.target_names = [str(cls) for cls in handler.encoder.classes_]
         self.report = classification_report(
             self.y_test_encoded, 
             self.y_pred, 
@@ -320,8 +319,7 @@ class LungCancerMLP:
         return self.model.summary()
     
 def pipeline(self, handler):
-        gkf = GroupKFold(n_splits=4)
-        data = pd.read_csv("data/binary_features_log.csv")
+        gkf = GroupKFold(n_splits=4)    
 
         for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)): # From datahandling class 
             handler.split(self.X, self.y, train_idx, test_idx)
