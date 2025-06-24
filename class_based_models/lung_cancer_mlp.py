@@ -24,11 +24,8 @@ tf.random.set_seed(SEED)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
-reports = []
-conf_matrices = []
-details = []
-history = []
-roc_aucs = [] 
+# Fix history, report and etc. handling 
+# Avoid global pipeline and create variables within the class 
 
 class DataHandling:
     def __init__(self, data=r"data/binary_features_log.csv"):
@@ -37,6 +34,12 @@ class DataHandling:
         self.encoder = LabelEncoder()
         self.smote = SMOTEENN(random_state=SEED)
         self.data = data
+
+        self.reports = reports
+        self.conf_matrices = conf_matrices
+        self.details = details
+        self.history = history 
+        self.roc_aucs = roc_aucs
 
         # Input and Output
         self.X = None
@@ -171,7 +174,7 @@ class LungCancerMLP:
         return model
 
     def training_details(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, X, y, fold, epochs=50, batch_size=16):
-        self.X_test_fold = X_train_fold
+        self.X_train_fold = X_train_fold
         self.X_test_fold = X_test_fold
         self.y_train_final = y_train_final 
         self.X_val_final = X_val_final
@@ -241,7 +244,7 @@ class LungCancerMLP:
     
     def summary(self):
         accuracies = [report['accuracy'] for report in reports]
-        epochs_trained = [fold['epochs_trained'] for fold in details] # May need to create a variable for this 
+        epochs_trained = [fold['epochs_trained'] for fold in details] 
         
         print("Per-fold results:")
         for i, (acc, details) in enumerate(zip(accuracies, details)):
