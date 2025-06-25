@@ -27,6 +27,8 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 # Fix history, report and etc. handling 
 # Avoid global pipeline and create variables within the class 
 
+# Could probably do something like handler.history and such for the data logging
+
 class DataHandling:
     def __init__(self, data=r"data/binary_features_log.csv"):
         # Functions 
@@ -35,11 +37,11 @@ class DataHandling:
         self.smote = SMOTEENN(random_state=SEED)
         self.data = data
 
-        self.reports = reports
-        self.conf_matrices = conf_matrices
-        self.details = details
-        self.history = history 
-        self.roc_aucs = roc_aucs
+        self.reports = None
+        self.conf_matrices = None
+        self.details = None
+        self.history = None
+        self.roc_aucs = None
 
         # Input and Output
         self.X = None
@@ -137,10 +139,6 @@ class LungCancerMLP:
         self.num_classes = num_classes 
         self.model = self._buildmodel(X_train_final, num_classes)
         self.history = None
-        self.auc = roc_aucs
-        self.report = reports
-        self.c_matrix = conf_matrices
-        self.details = details
         self.accuracies = None
         self.epochs_trained = None
         self.target_names = None
