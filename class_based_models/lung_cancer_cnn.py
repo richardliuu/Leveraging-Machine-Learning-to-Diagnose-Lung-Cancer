@@ -26,17 +26,30 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 
 class DataHandling:
     def __init__(self, data=r"binary_mfccs.npy"):
+        self.encoder = LabelEncoder()
+        self.smote = SMOTEENN()
+
         self.history = []
         self.auc = []
         self.report = []
         self.c_matrix = []
         self.details = []
-
         self.data = data 
 
+        self.X = []
+        self.y = [] 
+        self.groups = [] 
 
-# Need to modify this CNN to MLP code 
-# Model and Data handling is slightly different 
+# Pipeline 
+
+        # Data Split 
+
+        # Transform 
+
+        # Categorical
+
+        # Validation Split 
+
 class LungCancerCNN:
     def __init__(self, X_train_final, num_classes):
         self.X_train_final = X_train_final
@@ -66,6 +79,20 @@ class LungCancerCNN:
                       metrics=['accuracy'])
         
         return model
+    
+    # Need to insert the training data in the params
+    def train(self,  ,epochs=50, batch_size=16):
+        early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+        lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
+
+        history = self.model.fit(
+            
+            epochs=epochs, batch_size=batch_size,
+            callbacks=[early_stopping, lr_schedule], verbose=1
+        )
+
+        return history 
+
 
     def training_details(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, X, y, fold, epochs=50, batch_size=16):
         self.X_test_fold = X_train_fold
@@ -107,11 +134,6 @@ class LungCancerCNN:
             'accuracy': self.report['accuracy'],
             'epochs_trained': len(self.history.history['loss'])
         })
-
-        roc_aucs.append(self.auc)
-        reports.append(self.report)
-        conf_matrices.append(self.c_matrix)
-        histories.append(self.history.history)
     
         return self.reports, self.conf_matrices, self.details, self.histories, self.roc_aucs, self.history
         
@@ -150,8 +172,7 @@ def pipeline(handler):
         })
 
 handler = DataHandling()
-if handler.load_data():  # returns True if OK
+if handler.load_data(): 
     pipeline(handler)
-    # optionally plot/save handler.history, handler.details, handler.reports...
 else:
     print("Error with duplicate data or inconsistent patients")
