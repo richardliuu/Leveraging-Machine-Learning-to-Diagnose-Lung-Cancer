@@ -26,8 +26,13 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 
 class DataHandling:
     def __init__(self, data=r"binary_mfccs.npy"):
-        # Instantiated all variables used in the CNN models 
-        pass
+        self.history = []
+        self.auc = []
+        self.report = []
+        self.c_matrix = []
+        self.details = []
+
+        self.data = data 
 
 
 # Need to modify this CNN to MLP code 
@@ -36,15 +41,7 @@ class LungCancerCNN:
     def __init__(self, X_train_final, num_classes):
         self.X_train_final = X_train_final
         self.num_classes = num_classes 
-        self.model = self._buildmodel(X_train_final, num_classes)
-        self.history = None
-        self.auc = roc_aucs
-        self.report = reports
-        self.c_matrix = conf_matrices
-        self.histories = histories 
-        self.details = details
-        self.accuracies = None
-        self.epochs_trained = None
+        self.model = self._buildmodel()
         self.target_names = None
 
     def _buildmodel(self, X_train_final, num_classes):
@@ -118,4 +115,43 @@ class LungCancerCNN:
     
         return self.reports, self.conf_matrices, self.details, self.histories, self.roc_aucs, self.history
         
-    
+def pipeline(handler):
+    gkf = GroupKFold(n_splits=5)
+
+    for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
+        handler.split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
+        handler.transform()
+        handler.put_to_categorical()
+        handler.validation_split()
+
+        model = LungCancerCNN(
+            num_classes=handler.num_classes,
+            input_dim=handler.X_train.shape[1],
+        )
+
+        history = model.train(
+            handler.X_train, handler.y_train, handler.X_val, handler.y_val
+        )
+
+        report, c_matrix, auc = model.evaluate(
+            handler.X_test_scaled, handler.y_test_encoded, handler.encoder
+        )
+
+        handler.reports.append(report)
+        handler.conf_matrices.append(c_matrix)
+        handler.roc_aucs.append(auc)
+        handler.history.append(history.history)
+        handler.details.append({
+            "fold": fold + 1,
+            "train_samples": len(handler.X_train_fold),
+            "test_samples": len(handler.X_test_fold),
+            "accuracy": report['accuracy'],
+            "epochs_trained": len(history.history['loss']),
+        })
+
+handler = DataHandling()
+if handler.load_data():  # returns True if OK
+    pipeline(handler)
+    # optionally plot/save handler.history, handler.details, handler.reports...
+else:
+    print("Error with duplicate data or inconsistent patients")

@@ -22,8 +22,6 @@ tf.random.set_seed(SEED)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
-# ===== Note to clean up the prints in the terminal and go back to the final model (clean code) 
-
 def verify_data_integrity_from_array(data_array):
     rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
     df_meta = pd.DataFrame(rows)
