@@ -37,11 +37,11 @@ class DataHandling:
         self.smote = SMOTEENN(random_state=SEED)
         self.data = data
 
-        self.reports = None
-        self.conf_matrices = None
-        self.details = None
-        self.history = None
-        self.roc_aucs = None
+        self.reports = []
+        self.conf_matrices = []
+        self.details = []
+        self.history = []
+        self.roc_aucs = []
 
         # Input and Output
         self.X = None
