@@ -41,13 +41,20 @@ class DataHandling:
         self.groups = [] 
 
 # Pipeline 
-
+    def data_split():
+        pass 
         # Data Split 
 
+    def transform():
+        pass
         # Transform 
 
+    def put_to_categorical():
+        pass
         # Categorical
 
+    def validation_split():
+        pass 
         # Validation Split 
 
 class LungCancerCNN:
