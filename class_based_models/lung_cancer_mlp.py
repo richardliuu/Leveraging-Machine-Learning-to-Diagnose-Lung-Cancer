@@ -40,37 +40,30 @@ class DataHandling:
         self.history = []
         self.roc_aucs = []
 
-        # Input and Output
         self.X = None
         self.y = None
 
-        # Fold data
         self.X_train_fold = None
         self.y_train_fold = None
         self.X_test_fold = None
         self.y_test_fold = None
 
-        # Scaled data
         self.X_train_scaled = None
         self.X_test_scaled = None
         self.y_train_encoded = None
         self.y_test_encoded = None
 
-        # Categorical
         self.y_train_cat = None
         self.y_test_cat = None
 
-        # Final training and validation
         self.X_train = None
         self.X_val = None
         self.y_train = None
         self.y_val = None
 
-        # Resampled training data 
         self.X_train_resampled = None
         self.y_train_resampled = None
 
-        # Data Information
         self.num_classes = None
         self.feature_cols = None
         self.groups = None
@@ -218,6 +211,8 @@ def pipeline(handler):
             handler.X_test_scaled, handler.y_test_encoded, handler.encoder
         )
 
+        # Stored for easy access
+
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
@@ -231,7 +226,7 @@ def pipeline(handler):
         })
 
 handler = DataHandling()
-if handler.load_data():  # returns True if OK
+if handler.load_data():
     pipeline(handler)
     # optionally plot/save handler.history, handler.details, handler.reports...
 else:

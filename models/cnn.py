@@ -148,7 +148,6 @@ def cross_validation(data_array):
             print("ROC AUC could not be computed:", str(e))
             auc = np.nan
 
-
         all_roc_aucs.append(auc)
         all_reports.append(report)
         all_conf_matrices.append(c_matrix)

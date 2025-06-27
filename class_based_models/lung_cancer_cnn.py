@@ -28,34 +28,48 @@ class DataHandling:
     def __init__(self, data=r"binary_mfccs.npy"):
         self.encoder = LabelEncoder()
         self.smote = SMOTEENN()
+        self.data = data 
 
         self.history = []
         self.auc = []
         self.report = []
         self.c_matrix = []
         self.details = []
-        self.data = data 
 
         self.X = []
         self.y = [] 
         self.groups = [] 
 
-# Pipeline 
-    def data_split():
+        self.num_classes = None
+        self.patient_labels = None 
+        self.inconsistent_patients = None 
+
+    def load_data(self):
+        rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
+        data = pd.DataFrame(rows)
+
+        self.patient_labels = data.groupby('patient_id')['cancer_stage'].nunique()
+        self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
+
+        class_counts = data['cancer_stage'].value_counts()
+        print(f"\nClass distribution:\n{class_counts}")
+
+        samples_per_patient = data.groupby('patient_id').size()
+
+        return len(self.inconsistent_patients) == 0
+
+    def data_split(self, X, y, train_idx, test_idx):
         pass 
-        # Data Split 
 
     def transform():
         pass
-        # Transform 
 
-    def put_to_categorical():
-        pass
-        # Categorical
+    def put_to_categorical(self):
+        y_train_fold = to_categorical(y_train_fold_int, num_classes=self.num_classes)
+        y_test_fold = to_categorical(y_test_fold_int, num_classes=self.num_classes)
 
     def validation_split():
         pass 
-        # Validation Split 
 
 class LungCancerCNN:
     def __init__(self, X_train_final, num_classes):
@@ -100,50 +114,27 @@ class LungCancerCNN:
 
         return history 
 
+    # Not fit for CNN yet 
+    def evaluate(self, y_test, preds, encoder):
+        preds = np.argmax(self.model.predict(X_test), axis=1)
 
-    def training_details(self, X_test_fold, X_train_fold, X_train_final, y_train_final, X_val_final, y_val_final, X, y, fold, epochs=50, batch_size=16):
-        self.X_test_fold = X_train_fold
-        self.X_test_fold = X_test_fold
-        self.y_train_final = y_train_final 
-        self.X_val_final = X_val_final
-        self.y_val_final = y_val_final
-        self.X = X
-        self.y = y
-
-        early_stopping = EarlyStopping(
-            monitor='val_loss', 
-            patience=5, 
-            restore_best_weights=True
-            )
-        
-        lr_schedule = ReduceLROnPlateau(
-            monitor='val_loss', 
-            factor=0.1, 
-            patience=3, 
-            verbose=1
-            )
-        
-        self.history = self.model.fit(
-            X_train_final, y_train_final,
-            validation_data=(X_val_final, y_val_final),
-            epochs=epochs,
-            batch_size=batch_size,
-            callbacks=[early_stopping, lr_schedule],
-            verbose=1
+        report = classification_report(
+            y_test, preds, 
+            target_names=[str(cls) for cls in encoder.classes_],
+            output_dict=True 
         )
-        
-        self.details.append({
-            'fold': fold + 1, # Create a variable/sort it out 
-            'train_patients': len(self.train_patients),
-            'test_patients': len(self.test_patients),
-            'train_samples': len(self.X_train_fold),
-            'test_samples': len(self.X_test_fold),
-            'accuracy': self.report['accuracy'],
-            'epochs_trained': len(self.history.history['loss'])
-        })
-    
-        return self.reports, self.conf_matrices, self.details, self.histories, self.roc_aucs, self.history
-        
+
+        c_matrix = confusion_matrix(y_test, preds)
+
+        auc = roc_auc_score(
+            to_categorical(y_test, num_classes=self.num_classes),
+            to_categorical(preds, num_classes=self.num_classes),
+            multi_class='ovr'
+        )
+
+        return report, c_matrix, auc 
+
+# Not fit for CNN yet 
 def pipeline(handler):
     gkf = GroupKFold(n_splits=5)
 
@@ -165,6 +156,8 @@ def pipeline(handler):
         report, c_matrix, auc = model.evaluate(
             handler.X_test_scaled, handler.y_test_encoded, handler.encoder
         )
+
+        # Stored for easy access 
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
