@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf 
-import matplotlib.pyplot as plt
 import random
 import os
 from sklearn.model_selection import GroupKFold, train_test_split
@@ -39,27 +38,27 @@ class DataHandling:
         self.X = []
         self.y = [] 
         self.groups = [] 
+        self.y_encoded = None 
 
         self.num_classes = None
         self.patient_labels = None 
         self.inconsistent_patients = None 
 
-    def load_data(self):
-        rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
-        data = pd.DataFrame(rows)
-
+    def load_data(self, data_array):
+        data = pd.DataFrame(self.rows)
+        self.rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
         self.patient_labels = data.groupby('patient_id')['cancer_stage'].nunique()
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
 
-        class_counts = data['cancer_stage'].value_counts()
-        print(f"\nClass distribution:\n{class_counts}")
-
-        samples_per_patient = data.groupby('patient_id').size()
+        self.X = np.array(self.X)[..., np.newaxis]  
+        self.X = self.X / np.max(np.abs(X))
+        self.y = np.array(self.y)
+        self.groups = np.array(self.groups)
 
         return len(self.inconsistent_patients) == 0
 
-    def data_split(self, X, y, train_idx, test_idx):
-        pass 
+    def data_split(self, X, y, train_idx, test_idx, encoder):
+        self.y_encoded = encoder.fit_transform(y)
 
     def transform():
         pass
