@@ -25,6 +25,7 @@ tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
 # Does not include making predictions outside of Cross Validation or Plotting/Summaries 
+# Look over generalizability because val accuracy is quite high 
 
 class DataHandling:
     def __init__(self, data=r"data/binary_features_log.csv"):
@@ -133,9 +134,9 @@ class LungCancerMLP:
     def _buildmodel(self):
         model = Sequential([
             Input(shape=(self.input_dim,)),
-            Dense(512, activation='relu'),
-            BatchNormalization(),
-            Dropout(0.4),
+            #Dense(512, activation='relu'),
+            #BatchNormalization(),
+            #Dropout(0.4),
             
             Dense(256, activation='relu'),
             BatchNormalization(),
