@@ -39,6 +39,13 @@ class DataHandling:
         self.y = [] 
         self.groups = [] 
         self.y_encoded = None 
+        self.X_train_fold = None 
+        self.X_test_fold = None 
+        self.y_train_fold_int = None
+        self.y_test_fold_int = None 
+
+        self.groups_train = None
+        self.groups_test = None 
 
         self.num_classes = None
         self.patient_labels = None 
@@ -51,7 +58,7 @@ class DataHandling:
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
 
         self.X = np.array(self.X)[..., np.newaxis]  
-        self.X = self.X / np.max(np.abs(X))
+        self.X = self.X / np.max(np.abs(self.X))
         self.y = np.array(self.y)
         self.groups = np.array(self.groups)
 
@@ -59,16 +66,20 @@ class DataHandling:
 
     def data_split(self, X, y, train_idx, test_idx, encoder):
         self.y_encoded = encoder.fit_transform(y)
-
-    def transform():
-        pass
+    
+        self.X_train_fold, self.X_test_fold = X[train_idx], X[test_idx]
+        self.y_train_fold_int, self.y_test_fold_int = self.y_encoded[train_idx], self.y_encoded[test_idx]
+        self.groups_train, self.groups_test = self.groups[train_idx], self.groups[test_idx]
 
     def put_to_categorical(self):
-        y_train_fold = to_categorical(y_train_fold_int, num_classes=self.num_classes)
-        y_test_fold = to_categorical(y_test_fold_int, num_classes=self.num_classes)
+        self.y_train_fold = to_categorical(self.y_train_fold_int, num_classes=self.num_classes)
+        self.y_test_fold = to_categorical(self.y_test_fold_int, num_classes=self.num_classes)
 
     def validation_split():
         pass 
+
+    def get_data(self):
+        return self.y_train_fold, self.y_test_fold, 
 
 class LungCancerCNN:
     def __init__(self, X_train_final, num_classes):
@@ -77,7 +88,7 @@ class LungCancerCNN:
         self.model = self._buildmodel()
         self.target_names = None
 
-    def _buildmodel(self, X_train_final, num_classes):
+    def _buildmodel(self):
         model = Sequential([
             Conv2D(32, (3, 3), activation='relu', input_shape=(60, 13, 1)),
             MaxPooling2D((2, 2)),
@@ -91,7 +102,7 @@ class LungCancerCNN:
 
             Dense(128, activation='relu'),
             Dropout(0.3),
-            Dense(num_classes, activation='softmax')
+            Dense(self.num_classes, activation='softmax')
         ])
         
         model.compile(optimizer='adam',
@@ -101,12 +112,13 @@ class LungCancerCNN:
         return model
     
     # Need to insert the training data in the params
-    def train(self,  ,epochs=50, batch_size=16):
+    def train(self, epochs=50, batch_size=16):
         early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
         lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
 
         history = self.model.fit(
-            
+            self.X_train_final, self.y_train_final,
+            validation_data=[self.X_val_final, self.y_val_final],
             epochs=epochs, batch_size=batch_size,
             callbacks=[early_stopping, lr_schedule], verbose=1
         )
@@ -114,8 +126,9 @@ class LungCancerCNN:
         return history 
 
     # Not fit for CNN yet 
+    # Need to instantiate y_test, x_test 
     def evaluate(self, y_test, preds, encoder):
-        preds = np.argmax(self.model.predict(X_test), axis=1)
+        preds = np.argmax(self.model.predict(self.X_test), axis=1)
 
         report = classification_report(
             y_test, preds, 
