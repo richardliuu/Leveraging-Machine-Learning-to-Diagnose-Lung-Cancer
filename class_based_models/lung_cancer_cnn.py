@@ -35,9 +35,11 @@ class DataHandling:
         self.c_matrix = []
         self.details = []
 
-        self.X = []
-        self.y = [] 
-        self.groups = [] 
+        self.X = None
+        self.y = None
+        self.groups = None
+        self.y_test_fold = None 
+        self.X_test_fold = None 
         self.y_encoded = None 
         self.X_train_fold = None 
         self.X_test_fold = None 
@@ -112,23 +114,21 @@ class LungCancerCNN:
         return model
     
     # Need to insert the training data in the params
-    def train(self, epochs=50, batch_size=16):
+    def train(self, X_train_final, y_train_final, X_val_final, y_val_final, epochs=50, batch_size=16):
         early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
         lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
 
         history = self.model.fit(
-            self.X_train_final, self.y_train_final,
-            validation_data=[self.X_val_final, self.y_val_final],
+            X_train_final, y_train_final,
+            validation_data=[X_val_final, y_val_final],
             epochs=epochs, batch_size=batch_size,
             callbacks=[early_stopping, lr_schedule], verbose=1
         )
 
         return history 
 
-    # Not fit for CNN yet 
-    # Need to instantiate y_test, x_test 
     def evaluate(self, y_test, preds, encoder):
-        preds = np.argmax(self.model.predict(self.X_test), axis=1)
+        preds = np.argmax(self.model.predict(self.X_test_fold), axis=1)
 
         report = classification_report(
             y_test, preds, 
