@@ -226,8 +226,5 @@ def pipeline(handler):
         })
 
 handler = DataHandling()
-if handler.load_data():
-    pipeline(handler)
-    # optionally plot/save handler.history, handler.details, handler.reports...
-else:
-    print("Error with duplicate data or inconsistent patients")
+handler.load_data()
+pipeline(handler)

@@ -78,7 +78,15 @@ class DataHandling:
         self.y_test_fold = to_categorical(self.y_test_fold_int, num_classes=self.num_classes)
 
     def validation_split():
-        pass 
+        gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=SEED)
+        val_train_idx, val_idx = next(gss.split(X_train_fold, y_train_fold_int, groups=groups_train))
+
+        X_train_final, X_val_final = X_train_fold[val_train_idx], X_train_fold[val_idx]
+        y_train_final, y_val_final = y_train_fold[val_train_idx], y_train_fold[val_idx]
+
+        train_patients = set(groups_train[val_train_idx])
+        val_patients = set(groups_train[val_idx])
+        test_patients = set(groups_test)
 
     def get_data(self):
         return self.y_train_fold, self.y_test_fold, 
@@ -113,7 +121,6 @@ class LungCancerCNN:
         
         return model
     
-    # Need to insert the training data in the params
     def train(self, X_train_final, y_train_final, X_val_final, y_val_final, epochs=50, batch_size=16):
         early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
         lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
@@ -146,7 +153,6 @@ class LungCancerCNN:
 
         return report, c_matrix, auc 
 
-# Not fit for CNN yet 
 def pipeline(handler):
     gkf = GroupKFold(n_splits=5)
 
@@ -169,8 +175,6 @@ def pipeline(handler):
             handler.X_test_scaled, handler.y_test_encoded, handler.encoder
         )
 
-        # Stored for easy access 
-
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
@@ -184,7 +188,5 @@ def pipeline(handler):
         })
 
 handler = DataHandling()
-if handler.load_data(): 
-    pipeline(handler)
-else:
-    print("Error with duplicate data or inconsistent patients")
+handler.load_data()
+pipeline(handler)
