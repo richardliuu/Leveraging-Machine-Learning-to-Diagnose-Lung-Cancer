@@ -1,3 +1,5 @@
+# Summary 
+
 # Introduction 
 This repostiroy contains the code for a proof-of-concept machine learning model that detects potential signs of lung cancer using audio recordings of human speech. It explores the relationship between vocal biomakers and health conditions like lung cancer, offering a non-invasive approach to voice-based screening. 
 
@@ -21,3 +23,6 @@ CNN (Convolutional Neural Network)
 - pip isntall -r requirements.txt
 
 3. Run the models' files 
+
+# Data Acquisition
+Permission for the use of audio data and patient information used in this project was granted by Dr. Haydar Ankishan, Associate Professor at Stem Cell Institute of Ankara University, Turkey. The data contains voice recordings of individuals diagnosed with various stages of lung cancer as well as healthy controls and their medical history.

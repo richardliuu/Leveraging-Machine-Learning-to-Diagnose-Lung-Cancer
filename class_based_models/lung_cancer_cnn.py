@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf 
 import random
 import os
-from sklearn.model_selection import GroupKFold, train_test_split
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from tensorflow.keras.models import Sequential 
