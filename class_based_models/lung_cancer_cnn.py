@@ -45,6 +45,9 @@ class DataHandling:
         self.X_test_fold = None 
         self.y_train_fold_int = None
         self.y_test_fold_int = None 
+        self.train_patients = None 
+        self.val_patients = None
+        self.test_patients = None 
 
         self.groups_train = None
         self.groups_test = None 
@@ -77,19 +80,19 @@ class DataHandling:
         self.y_train_fold = to_categorical(self.y_train_fold_int, num_classes=self.num_classes)
         self.y_test_fold = to_categorical(self.y_test_fold_int, num_classes=self.num_classes)
 
-    def validation_split():
+    def validation_split(self):
         gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=SEED)
-        val_train_idx, val_idx = next(gss.split(X_train_fold, y_train_fold_int, groups=groups_train))
+        val_train_idx, val_idx = next(gss.split(self.X_train_fold, self.y_train_fold_int, groups=self.groups_train))
 
-        X_train_final, X_val_final = X_train_fold[val_train_idx], X_train_fold[val_idx]
-        y_train_final, y_val_final = y_train_fold[val_train_idx], y_train_fold[val_idx]
+        self.X_train_final, self.X_val_final = self.X_train_fold[val_train_idx], self.X_train_fold[val_idx]
+        self.y_train_final, self.y_val_final = self.y_train_fold[val_train_idx], self.y_train_fold[val_idx]
 
-        train_patients = set(groups_train[val_train_idx])
-        val_patients = set(groups_train[val_idx])
-        test_patients = set(groups_test)
+        self.train_patients = set(self.groups_train[val_train_idx])
+        self.val_patients = set(self.groups_train[val_idx])
+        self.test_patients = set(self.groups_test)
 
     def get_data(self):
-        return self.y_train_fold, self.y_test_fold, 
+        return self.y_train_fold, self.y_test_fold, self.train_patients, self.val_patients, self.test_patients
 
 class LungCancerCNN:
     def __init__(self, X_train_final, num_classes):
