@@ -56,6 +56,11 @@ class DataHandling:
         self.patient_labels = None 
         self.inconsistent_patients = None 
 
+        self.rows = None 
+
+        self.train_idx = None
+        self.test_idx = None 
+
     def load_data(self, data_array):
         data = pd.DataFrame(self.rows)
         self.rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
@@ -69,12 +74,12 @@ class DataHandling:
 
         return len(self.inconsistent_patients) == 0
 
-    def data_split(self, X, y, train_idx, test_idx, encoder):
+    def data_split(self, X, y, encoder):
         self.y_encoded = encoder.fit_transform(y)
     
-        self.X_train_fold, self.X_test_fold = X[train_idx], X[test_idx]
-        self.y_train_fold_int, self.y_test_fold_int = self.y_encoded[train_idx], self.y_encoded[test_idx]
-        self.groups_train, self.groups_test = self.groups[train_idx], self.groups[test_idx]
+        self.X_train_fold, self.X_test_fold = X[self.train_idx], X[self.test_idx]
+        self.y_train_fold_int, self.y_test_fold_int = self.y_encoded[self.train_idx], self.y_encoded[self.test_idx]
+        self.groups_train, self.groups_test = self.groups[self.train_idx], self.groups[self.test_idx]
 
     def put_to_categorical(self):
         self.y_train_fold = to_categorical(self.y_train_fold_int, num_classes=self.num_classes)
@@ -125,8 +130,18 @@ class LungCancerCNN:
         return model
     
     def train(self, X_train_final, y_train_final, X_val_final, y_val_final, epochs=50, batch_size=16):
-        early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-        lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose=1)
+        early_stopping = EarlyStopping(
+            monitor='val_loss', 
+            patience=5, 
+            restore_best_weights=True
+        )
+        
+        lr_schedule = ReduceLROnPlateau(
+            monitor='val_loss', 
+            factor=0.1, 
+            patience=3, 
+            verbose=1
+        )
 
         history = self.model.fit(
             X_train_final, y_train_final,
@@ -160,7 +175,7 @@ def pipeline(handler):
     gkf = GroupKFold(n_splits=5)
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
-        handler.split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
+        handler.data_split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
         handler.transform()
         handler.put_to_categorical()
         handler.validation_split()

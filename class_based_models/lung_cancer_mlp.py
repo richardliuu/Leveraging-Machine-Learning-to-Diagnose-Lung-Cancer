@@ -24,11 +24,11 @@ tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
 # Does not include making predictions outside of Cross Validation or Plotting/Summaries 
+# Appends data 
 # Look over generalizability because val accuracy is quite high 
 
 class DataHandling:
     def __init__(self, data=r"data/binary_features_log.csv"):
-        # Functions 
         self.scaler = StandardScaler()
         self.encoder = LabelEncoder()
         self.smote = SMOTEENN(random_state=SEED)
@@ -212,6 +212,7 @@ def pipeline(handler):
         )
 
         # Stored for easy access
+        # Not used for graphing though
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
@@ -224,6 +225,8 @@ def pipeline(handler):
             "accuracy": report['accuracy'],
             "epochs_trained": len(history.history['loss']),
         })
+
+        # Might want to include terminal printing the results 
 
 handler = DataHandling()
 handler.load_data()
