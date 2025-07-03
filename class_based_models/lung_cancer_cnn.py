@@ -74,16 +74,22 @@ class DataHandling:
 
         return len(self.inconsistent_patients) == 0
 
-    def data_split(self, X, y, encoder):
+
+    def data_split(self, X, y, encoder, data_array):
         self.y_encoded = encoder.fit_transform(y)
     
         self.X_train_fold, self.X_test_fold = X[self.train_idx], X[self.test_idx]
         self.y_train_fold_int, self.y_test_fold_int = self.y_encoded[self.train_idx], self.y_encoded[self.test_idx]
         self.groups_train, self.groups_test = self.groups[self.train_idx], self.groups[self.test_idx]
 
-    def put_to_categorical(self):
         self.y_train_fold = to_categorical(self.y_train_fold_int, num_classes=self.num_classes)
         self.y_test_fold = to_categorical(self.y_test_fold_int, num_classes=self.num_classes)
+
+        for mfcc, label, patient_id in data_array:
+            mfcc = mfcc[:60] if mfcc.shape[0] >= 60 else np.pad(mfcc, ((0, 60 - mfcc.shape[0]), (0, 0)))
+            X.append(mfcc)
+            y.append(label)
+            self.groups.append(patient_id)     
 
     def validation_split(self):
         gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=SEED)
@@ -177,7 +183,6 @@ def pipeline(handler):
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
         handler.data_split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
         handler.transform()
-        handler.put_to_categorical()
         handler.validation_split()
 
         model = LungCancerCNN(
@@ -205,6 +210,35 @@ def pipeline(handler):
             "epochs_trained": len(history.history['loss']),
         })
 
+        # Logging 
+        
+        """
+        Confusion Matrix is faulty 
+        """
+
+        # Might want to access from the logs stored here    
+        
+        accuracies = [report['accuracy'] for report in handler.reports]
+        avg_accuracy = np.mean(accuracies)
+        std_accuracy = np.std(accuracies)
+
+        print(f"\nOverall Performance:")
+        print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
+        print(f"Min Accuracy:  {min(accuracies):.4f}")
+        print(f"Max Accuracy:  {max(accuracies):.4f}")
+        
+        class_0_f1 = [report['0']['f1-score'] for report in handler.reports]
+        class_1_f1 = [report['1']['f1-score'] for report in handler.reports]
+        
+        print(f"\nClass-wise F1-scores:")
+        print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
+        print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
+        
+        avg_conf_matrix = np.mean(c_matrix, axis=0)
+        print(f"\nAverage Confusion Matrix:")
+        print(np.round(avg_conf_matrix).astype(int))
+
 handler = DataHandling()
+# Requires a positional argument (data_array) but its not defined 
 handler.load_data()
 pipeline(handler)
