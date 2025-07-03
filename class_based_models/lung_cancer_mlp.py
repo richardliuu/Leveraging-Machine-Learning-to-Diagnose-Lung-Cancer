@@ -226,7 +226,27 @@ def pipeline(handler):
             "epochs_trained": len(history.history['loss']),
         })
 
-        # Might want to include terminal printing the results 
+        # Logging 
+
+        accuracies = [report['accuracy'] for report in handler.reports]
+        avg_accuracy = np.mean(accuracies)
+        std_accuracy = np.std(accuracies)
+
+        print(f"\nOverall Performance:")
+        print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
+        print(f"Min Accuracy:  {min(accuracies):.4f}")
+        print(f"Max Accuracy:  {max(accuracies):.4f}")
+        
+        class_0_f1 = [report['0']['f1-score'] for report in handler.reports]
+        class_1_f1 = [report['1']['f1-score'] for report in handler.reports]
+        
+        print(f"\nClass-wise F1-scores:")
+        print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
+        print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
+        
+        avg_conf_matrix = np.mean(c_matrix, axis=0)
+        print(f"\nAverage Confusion Matrix:")
+        print(np.round(avg_conf_matrix).astype(int))
 
 handler = DataHandling()
 handler.load_data()
