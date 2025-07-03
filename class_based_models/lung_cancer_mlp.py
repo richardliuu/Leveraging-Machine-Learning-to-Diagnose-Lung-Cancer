@@ -211,9 +211,6 @@ def pipeline(handler):
             handler.X_test_scaled, handler.y_test_encoded, handler.encoder
         )
 
-        # Stored for easy access
-        # Not used for graphing though
-
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
@@ -227,6 +224,10 @@ def pipeline(handler):
         })
 
         # Logging 
+        
+        """
+        Confusion Matrix is faulty 
+        """
 
         accuracies = [report['accuracy'] for report in handler.reports]
         avg_accuracy = np.mean(accuracies)
