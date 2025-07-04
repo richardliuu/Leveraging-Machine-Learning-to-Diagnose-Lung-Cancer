@@ -60,10 +60,11 @@ class DataHandling:
 
         self.train_idx = None
         self.test_idx = None 
+        self.data_array = None 
 
     def load_data(self, data_array):
-        data = pd.DataFrame(self.rows)
         self.rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
+        data = pd.DataFrame(self.rows)
         self.patient_labels = data.groupby('patient_id')['cancer_stage'].nunique()
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
 
@@ -73,7 +74,6 @@ class DataHandling:
         self.groups = np.array(self.groups)
 
         return len(self.inconsistent_patients) == 0
-
 
     def data_split(self, X, y, encoder, data_array):
         self.y_encoded = encoder.fit_transform(y)
@@ -131,7 +131,8 @@ class LungCancerCNN:
         
         model.compile(optimizer='adam',
                       loss='categorical_crossentropy',
-                      metrics=['accuracy'])
+                      metrics=['accuracy']
+                      )
         
         return model
     
@@ -211,13 +212,6 @@ def pipeline(handler):
         })
 
         # Logging 
-        
-        """
-        Confusion Matrix is faulty 
-        """
-
-        # Might want to access from the logs stored here    
-        
         accuracies = [report['accuracy'] for report in handler.reports]
         avg_accuracy = np.mean(accuracies)
         std_accuracy = np.std(accuracies)
@@ -233,10 +227,8 @@ def pipeline(handler):
         print(f"\nClass-wise F1-scores:")
         print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
         print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
-        
-        avg_conf_matrix = np.mean(c_matrix, axis=0)
-        print(f"\nAverage Confusion Matrix:")
-        print(np.round(avg_conf_matrix).astype(int))
+
+        print(c_matrix)
 
 handler = DataHandling()
 # Requires a positional argument (data_array) but its not defined 
