@@ -325,20 +325,6 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
     print(f"\nAverage Confusion Matrix:")
     print(np.round(avg_conf_matrix).astype(int))
     
-    if avg_accuracy > 0.95:
-        print("VERY HIGH accuracy")
-    elif avg_accuracy > 0.85:
-        print("HIGH accuracy")
-    elif avg_accuracy > 0.7:
-        print("Good accuracy")
-    else:
-        print("Moderate accuracy (Model tuning)")
-
-    if std_accuracy > 0.1:
-        print("HIGH variance across folds - results may not be stable")
-    else:
-        print("Low variance across folds - stable results")
-
     # ROC AUC Line Plot
     if all_roc_aucs:
         auc_scores = [score for score in all_roc_aucs if not np.isnan(score)]
