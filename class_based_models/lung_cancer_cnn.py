@@ -24,10 +24,10 @@ tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
 class DataHandling:
-    def __init__(self, data=r"binary_mfccs.npy"):
+    def __init__(self):
         self.encoder = LabelEncoder()
         self.smote = SMOTEENN()
-        self.data = data 
+        self.data = r"data/binary_mfccs.npy"
 
         self.history = []
         self.auc = []
@@ -57,46 +57,58 @@ class DataHandling:
         self.inconsistent_patients = None 
 
         self.rows = None 
-
         self.train_idx = None
         self.test_idx = None 
-        self.data_array = None 
 
-    def load_data(self, data_array):
+    def load_data(self):
+        data_array = np.load(self.data, allow_pickle=True)
         self.rows = [{'patient_id': pid, 'cancer_stage': label} for _, label, pid in data_array]
         data = pd.DataFrame(self.rows)
         self.patient_labels = data.groupby('patient_id')['cancer_stage'].nunique()
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
 
-        self.X = np.array(self.X)[..., np.newaxis]  
-        self.X = self.X / np.max(np.abs(self.X))
-        self.y = np.array(self.y)
-        self.groups = np.array(self.groups)
-
         return len(self.inconsistent_patients) == 0
-
-    def data_split(self, X, y, encoder, data_array):
-        self.y_encoded = encoder.fit_transform(y)
     
-        self.X_train_fold, self.X_test_fold = X[self.train_idx], X[self.test_idx]
-        self.y_train_fold_int, self.y_test_fold_int = self.y_encoded[self.train_idx], self.y_encoded[self.test_idx]
-        self.groups_train, self.groups_test = self.groups[self.train_idx], self.groups[self.test_idx]
-
-        self.y_train_fold = to_categorical(self.y_train_fold_int, num_classes=self.num_classes)
-        self.y_test_fold = to_categorical(self.y_test_fold_int, num_classes=self.num_classes)
+    def transform(self, data_array):
+        X, y, groups = [], [], []
 
         for mfcc, label, patient_id in data_array:
             mfcc = mfcc[:60] if mfcc.shape[0] >= 60 else np.pad(mfcc, ((0, 60 - mfcc.shape[0]), (0, 0)))
             X.append(mfcc)
             y.append(label)
-            self.groups.append(patient_id)     
+            groups.append(patient_id)     
+
+        self.X = np.array(self.X)[..., np.newaxis]  
+        self.X = self.X / np.max(np.abs(self.X))
+
+        self.X = X
+        self.y = np.array(y)
+        self.groups = np.array(groups)
+
+    def data_split(self, encoder, train_idx, test_idx):
+
+        self.train_idx = train_idx
+        self.test_idx = test_idx
+
+        self.y_encoded = encoder.fit_transform(self.y)
+        self.X_train_fold = self.X[self.train_idx]
+        self.X_test_fold = self.X[self.test_idx]
+        self.y_train_fold_int = self.y_encoded[self.train_idx]
+        self.y_test_fold_int = self.y_encoded[self.test_idx]
+        self.groups_train = self.groups[self.train_idx]
+        self.groups_test = self.groups[self.test_idx]
+
+        self.y_train_fold = to_categorical(self.y_train_fold_int, num_classes=self.num_classes)
+        self.y_test_fold = to_categorical(self.y_test_fold_int, num_classes=self.num_classes)
 
     def validation_split(self):
         gss = GroupShuffleSplit(n_splits=1, test_size=0.1, random_state=SEED)
         val_train_idx, val_idx = next(gss.split(self.X_train_fold, self.y_train_fold_int, groups=self.groups_train))
 
-        self.X_train_final, self.X_val_final = self.X_train_fold[val_train_idx], self.X_train_fold[val_idx]
-        self.y_train_final, self.y_val_final = self.y_train_fold[val_train_idx], self.y_train_fold[val_idx]
+        self.X_train_final = self.X_train_fold[val_train_idx]
+        self.X_val_final = self.X_train_fold[val_idx]
+        self.y_train_final = self.y_train_fold[val_train_idx]
+        self.y_val_final = self.y_train_fold[val_idx]
 
         self.train_patients = set(self.groups_train[val_train_idx])
         self.val_patients = set(self.groups_train[val_idx])
@@ -181,14 +193,18 @@ class LungCancerCNN:
 def pipeline(handler):
     gkf = GroupKFold(n_splits=5)
 
-    for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
-        handler.data_split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
+    print("X is None", handler.X is None)
+        
+    print("Y is None", handler.y is None)
+        
+    print("groups is None", handler.groups is None)
+
+    for fold, (train_idx, test_idx) in (gkf.split(handler.X, handler.y, handler.groups)):
+        handler.data_split(train_idx, test_idx)
         handler.transform()
         handler.validation_split()
 
         model = LungCancerCNN(
-            num_classes=handler.num_classes,
-            input_dim=handler.X_train.shape[1],
         )
 
         history = model.train(

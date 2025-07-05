@@ -16,6 +16,12 @@ CNN (Convolutional Neural Network)
 - For MFCC-based (Mel-frequency cepstral coefficients) spectrogram inputs
 
 # Methodology 
+1. 
+
+# Explainability
+1. Through the use of SHAP, the model's predictions aim to be interpretable by humans with ease. 
+2. Future work for explainability may include using Graph Neural Networks in attempts to explain the model
+
 
 # Getting Started 
 1. Clone the repository
