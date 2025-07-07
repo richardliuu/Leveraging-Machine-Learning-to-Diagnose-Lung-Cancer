@@ -189,6 +189,12 @@ class LungCancerMLP:
 
         return report, c_matrix, auc 
     
+    def predict(self, X):
+        y_pred_prob = self.model.predict(X, verbose=0)
+        y_pred = np.argmax(y_pred_prob, axis=1)
+
+        return y_pred 
+
 def pipeline(handler):
     gkf = GroupKFold(n_splits=5)
 
@@ -211,6 +217,9 @@ def pipeline(handler):
             handler.X_test_scaled, handler.y_test_encoded, handler.encoder
         )
 
+        y_pred = model.predict(handler.X_test_scaled)
+
+        handler.predictions.append(y_pred)
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
