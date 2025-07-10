@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf 
 import random
 import os
+import json
 from sklearn.model_selection import GroupKFold, train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
@@ -22,10 +23,6 @@ random.seed(SEED)
 tf.random.set_seed(SEED)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
-
-# Does not include making predictions outside of Cross Validation or Plotting/Summaries 
-# Appends data 
-# Look over generalizability because val accuracy is quite high 
 
 class DataHandling:
     def __init__(self, data=r"data/binary_features_log.csv"):
@@ -225,6 +222,34 @@ def pipeline(handler):
         print(c_matrix)
         print(y_pred)
 
+        results_df = handler.X_test_fold.copy()
+        results_df['true_label'] = handler.y_test_fold.values
+        results_df['predicted_label'] = y_pred
+        print(results_df.head())
+        
+        #results_df.append
+
+        all_samples = []
+
+        feature_names = handler.X_test_fold.columns
+
+        for i in range(len(handler.X_test_fold)):
+            sample = {
+                "features": {
+                    feature_names[j]: float(handler.X_test_fold.iloc[i, j])
+                    for j in range(handler.X_test_fold.shape[1])
+                },
+                "predicted_label": int(y_pred[i]),
+                "true_label": int(handler.y_test_encoded[i])
+            }
+
+            all_samples.append(sample)
+
+        with open("data\gnn_data.json", "w") as f:
+            json.dump(all_samples, f, indent=2)
+
+        #results_df.to_json(r"C:\Users\richa\OneDrive\Desktop\science2\data\gnn_training_data.json")
+
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
@@ -235,26 +260,10 @@ def pipeline(handler):
             "test_samples": len(handler.X_test_fold),
             "accuracy": report['accuracy'],
             "epochs_trained": len(history.history['loss']),
-        })
-
-        # Logging 
-        accuracies = [report['accuracy'] for report in handler.reports]
-        avg_accuracy = np.mean(accuracies)
-        std_accuracy = np.std(accuracies)
-
-        print(f"\nOverall Performance:")
-        print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
-        print(f"Min Accuracy:  {min(accuracies):.4f}")
-        print(f"Max Accuracy:  {max(accuracies):.4f}")
-        
-        class_0_f1 = [report['0']['f1-score'] for report in handler.reports]
-        class_1_f1 = [report['1']['f1-score'] for report in handler.reports]
-        
-        print(f"\nClass-wise F1-scores:")
-        print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
-        print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
-        
+        }) 
 
 handler = DataHandling()
 handler.load_data()
 pipeline(handler)
+
+
