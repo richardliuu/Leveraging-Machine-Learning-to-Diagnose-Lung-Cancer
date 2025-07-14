@@ -1,29 +1,34 @@
-import networkx as nx 
-import matplotlib.pyplot as plt 
+import torch.nn.functional as F
+import torch
+from torch_geometric.nn import GCNConv
+from torch_geometric.datasets import Planetoid
+from torch_geometric.transforms import NormalizeFeatures
 
-G = nx.DiGraph()
+dataset = Planetoid(root='data/Planetoid', name='Cora', transform=NormalizeFeatures())
+print(f"Dataset: {dataset}")
 
-G.add_nodes_from([
-    (0, {'color': 'blue', 'size': 250}),
-    (1, {'color': 'yellow', 'size': 400}),
-    (2, {'color': 'orange', 'size': 150}),
-    (3, {'color': 'red', 'size': 600}),
-])
+print(f"Number of graphs: {len(dataset)}")
+print(f"Number of features: {dataset.num_features}")
+print(f"Number of classes {dataset.num_classes}")
 
-G.add_edges_from([
-    (0, 1),
-    (1, 2),
-    (1, 0),
-    (1, 3),
-    (2, 3),
-    (3, 0),
-])
+data = dataset[0]
+print(data)
 
-node_colours = nx.get_node_attributes(G, "color").values()
-colours = list(node_colours)
-node_sizes = nx.get_node_attributes(G, "size").values()
-sizes = list(node_sizes)
+class GCN(torch.nn.module):
+    def __init__(self, hidden_channels):
+        super().__init__()
+        torch.manuel_seed(1234567)
 
-nx.draw(G, with_labels=True, node_color=colours, node_size=sizes)
+        self.conv1 = GCNConv(dataset.num_features, hidden_channels)
+        self.conv2 = GCNConv(hidden_channels, dataset.num_classes)
 
-plt.show()
+        def forward(self, x, edge_index):
+            x = self.conv1(x, edge_index)
+            x = x.relu()
+            x = F.dropout(x, p=0.5, training=self.training)
+            x = self.conv2(x, edge_index)
+
+            return x 
+        
+model = GCN(hidden_channels=16)
+print(model)

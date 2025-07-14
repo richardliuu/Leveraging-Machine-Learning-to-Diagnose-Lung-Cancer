@@ -39,6 +39,7 @@ class DataHandling:
         self.details = []
         self.history = []
         self.roc_aucs = []
+        self.predictions = []
 
         self.X = None
         self.y = None
