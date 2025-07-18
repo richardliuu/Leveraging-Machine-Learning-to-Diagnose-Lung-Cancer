@@ -1,8 +1,23 @@
+import pandas as pd 
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn import metrics 
 
-
-# Data split for surrogate model (regression, xgboost)
-
-class XGBoostSurrogate:
+class DataHandling:
     def __init__(self):
         pass
+    
+
+
+    def load_data():
+        
+    
+
+class DecisionTreeSurrogate:
+    def __init__(self):
+        pass 
+
+
+
+
 
