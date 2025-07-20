@@ -225,30 +225,10 @@ def pipeline(handler):
         results_df = handler.X_test_fold.copy()
         results_df['true_label'] = handler.y_test_fold.values
         results_df['predicted_label'] = y_pred
-        print(results_df.head())
-        
-        #results_df.append
 
         all_samples = []
 
-        feature_names = handler.X_test_fold.columns
-
-        for i in range(len(handler.X_test_fold)):
-            sample = {
-                "features": {
-                    feature_names[j]: float(handler.X_test_fold.iloc[i, j])
-                    for j in range(handler.X_test_fold.shape[1])
-                },
-                "predicted_label": int(y_pred[i]),
-                "true_label": int(handler.y_test_encoded[i])
-            }
-
-            all_samples.append(sample)
-
-        with open("data\gnn_data.json", "w") as f:
-            json.dump(all_samples, f, indent=2)
-
-        #results_df.to_json(r"C:\Users\richa\OneDrive\Desktop\science2\data\gnn_training_data.json")
+        all_samples.to_csv('data/surrogate_data.csv')
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)

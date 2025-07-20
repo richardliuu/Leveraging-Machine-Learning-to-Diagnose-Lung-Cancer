@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn import metrics 
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
+SEED = 42
+
 # Manual categorical function
 def to_categorical(labels, num_classes=None):
     labels = np.array(labels, dtype=int)
@@ -79,12 +81,14 @@ class DecisionTreeSurrogate:
         pass 
 
     def _buildmodel(self):
-        model = DecisionTreeClassifier
+        model = DecisionTreeClassifier(max_depth=10, random_state=SEED)
+        model.fit()
 
         return model
     
-
     def train():
+        pass
+        
 
 
 
