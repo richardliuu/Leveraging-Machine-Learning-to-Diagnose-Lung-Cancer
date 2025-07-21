@@ -226,9 +226,7 @@ def pipeline(handler):
         results_df['true_label'] = handler.y_test_fold.values
         results_df['predicted_label'] = y_pred
 
-        all_samples = []
-
-        all_samples.to_csv('data/surrogate_data.csv')
+        results_df.to_csv('data/surrogate_data.csv')
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)

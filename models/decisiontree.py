@@ -2,17 +2,10 @@ import pandas as pd
 import numpy as np 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
-from sklearn import metrics 
+from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 SEED = 42
-
-# Manual categorical function
-def to_categorical(labels, num_classes=None):
-    labels = np.array(labels, dtype=int)
-    if num_classes is None:
-        num_classes = np.max(labels) + 1
-    return np.eye(num_classes)[labels]
 
 class DataHandling:
     def __init__(self):
@@ -29,9 +22,15 @@ class DataHandling:
         self.X = None
         self.y = None
 
+    def to_categorical(labels, num_classes=None):
+        labels = np.array(labels, dtype=int)
+        if num_classes is None:
+            num_classes = np.max(labels) + 1
+        return np.eye(num_classes)[labels]
+
     def load_data(self):
         # Insert file directory 
-        data = pd.read_csv("data/")
+        data = pd.read_csv("data/surrogate_data.csv")
 
         # This may change because data from the predictions of the MLP are to be used instead 
         # Predicting for y_pred of the MLP
@@ -88,9 +87,13 @@ class DecisionTreeSurrogate:
     
     def train():
         pass
-        
 
+class FidelityCheck():
+    def __init__(self):
+        self.fidelity = None
 
-
+    def comparison(self):
+        self.fidelity = accuracy_score(mlp.predict(X_val), model.predict(X_val))
+        print(self.fidelity)
 
 
