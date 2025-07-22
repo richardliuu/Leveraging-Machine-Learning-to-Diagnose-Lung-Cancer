@@ -1,6 +1,6 @@
 import pandas as pd 
 import numpy as np 
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -80,13 +80,13 @@ class DecisionTreeSurrogate:
         pass 
 
     def _buildmodel(self):
-        model = DecisionTreeClassifier(max_depth=10, random_state=SEED)
-        model.fit()
+        self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
+        self.model.fit()
 
         return model
-    
-    def train():
-        pass
+
+    def evaluate(self):
+        plot_tree(self.model, feature_names=feature_names, filled=True)
 
 class FidelityCheck():
     def __init__(self):
