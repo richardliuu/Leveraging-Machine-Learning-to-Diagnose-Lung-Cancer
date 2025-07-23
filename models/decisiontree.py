@@ -1,17 +1,33 @@
 import pandas as pd 
 import numpy as np 
 from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split, GroupKFold
+from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from imblearn.combine import SMOTEENN
 
 SEED = 42
 
+# Class for dealing with preprocessing the data 
+
+"""
+I think I will want to clean up all the X variables as I think they could be
+passed through functions to reduce clutter in the classes
+
+Also makes the pipeline cleaner, with less variables are more ability to 
+edit the code 
+"""
+
 class DataHandling:
-    def __init__(self):
+    def __init__(self,data=r"C:\Users\richa\OneDrive\Desktop\science2\data\surrogate_data.csv"):
         self.encoder = LabelEncoder()
         self.scaler = StandardScaler() 
+        self.smote = SMOTEENN()
+        self.data = data
 
+
+        # The long list of variables that I want to get rid of 
+        # Also exists in the other model files as well
         self.reports = []
         self.conf_matrices = []
         self.details = []
@@ -19,9 +35,31 @@ class DataHandling:
         self.roc_aucs = []
         self.predictions = []
 
+        self.feature_cols = None
+        self.groups = None
+        self.duplicates = None
+        self.patient_labels = None
+        self.inconsistent_patients = None
+
         self.X = None
         self.y = None
+        self.X_train_fold = None
+        self.X_test_fold = None
+        self.y_train_fold = None
+        self.y_test_fold = None
+        self.X_train_scaled = None
+        self.X_test_scaled = None
+        self.y_train_encoded = None
+        self.y_test_encoded = None
+        self.X_train_resampled = None
+        self.y_train_resampled
+        self.num_classes = None
+        self.y_test_cat = None
+        self.y_train_cat = None
+        self.X_val = None
+        self.y_val = None
 
+    @staticmethod
     def to_categorical(labels, num_classes=None):
         labels = np.array(labels, dtype=int)
         if num_classes is None:
@@ -63,8 +101,8 @@ class DataHandling:
         self.X_train_resampled, self.y_train_resampled = self.smote.fit_resample(self.X_train_scaled, self.y_train_encoded)
 
     def put_to_categorical(self):
-        self.y_train_cat = to_categorical(self.y_train_resampled, num_classes=self.num_classes)
-        self.y_test_cat = to_categorical(self.y_test_encoded, num_classes=self.num_classes)
+        self.y_train_cat = self.to_categorical(self.y_train_resampled, num_classes=self.num_classes)
+        self.y_test_cat = self.to_categorical(self.y_test_encoded, num_classes=self.num_classes)
     
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
@@ -83,17 +121,61 @@ class DecisionTreeSurrogate:
         self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
         self.model.fit()
 
-        return model
+        return self.model
 
     def evaluate(self):
-        plot_tree(self.model, feature_names=feature_names, filled=True)
+        # Go back and check if feature_names is the variable to be called 
+        plot_tree(self.model, feature_names=self.feature_names, filled=True)
 
 class FidelityCheck():
     def __init__(self):
         self.fidelity = None
 
+    # Need to import the MLP for fidelity check 
     def comparison(self):
-        self.fidelity = accuracy_score(mlp.predict(X_val), model.predict(X_val))
+        self.fidelity = accuracy_score(mlp.predict(self.X_val), self.model.predict(self.X_val))
         print(self.fidelity)
 
+# Running the pipeline
+handler = DataHandling()
 
+def pipeline():
+    for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
+        handler.split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
+        handler.transform()
+        handler.put_to_categorical()
+        handler.validation_split()
+
+        # Fill in model specifications
+        model = ()
+
+        # Tune this to fit decision tree architecture 
+        history = model.train(
+            handler.X_train, handler.y_train, handler.X_val, handler.y_val
+        )
+
+        report, c_matrix, auc = model.evaluate(
+            handler.X_test_scaled, handler.y_test_encoded, handler.encoder
+        )
+
+        y_pred = model.predict(handler.X_test_scaled)
+        handler.predictions.append(y_pred)
+
+        c_matrix = confusion_matrix(handler.y_test_encoded, y_pred)
+        print(c_matrix)
+
+        handler.reports.append(report)
+        handler.conf_matrices.append(c_matrix)
+        handler.roc_aucs.append(auc)
+        handler.history.append(history.history)
+        handler.details.append({
+            "fold": fold + 1,
+            "train_samples": len(handler.X_train_fold),
+            "test_samples": len(handler.X_test_fold),
+            "accuracy": report['accuracy'],
+            "epochs_trained": len(history.history['loss']),
+        }) 
+
+handler = DataHandling()
+handler.load_data()
+pipeline(handler)
