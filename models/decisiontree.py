@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np 
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split, GroupKFold
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
+from ..class_based_models import lung_cancer_mlp
 
 SEED = 42
 
@@ -106,16 +107,20 @@ class DataHandling:
     
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-        self.X_train_resampled, self.y_train_cat, test_size=0.1, 
-        stratify=self.y_train_resampled, random_state=SEED
+            self.X_train_resampled, 
+            self.y_train_cat, 
+            test_size=0.1, 
+            stratify=self.y_train_resampled, 
+            random_state=SEED
         )
 
     def get_data(self):
         return self.X, self.y, self.X_train_fold, self.y_train_fold, self.X_test_fold, self.y_test_fold
 
 class DecisionTreeSurrogate:
-    def __init__(self):
-        pass 
+    def __init__(self, num_classes):
+        self.model = self._buildmodel()
+        self.num_classes = num_classes
 
     def _buildmodel(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
@@ -123,9 +128,20 @@ class DecisionTreeSurrogate:
 
         return self.model
 
-    def evaluate(self):
+    def evaluate(self, X_test, y_test, encoder):
         # Go back and check if feature_names is the variable to be called 
         plot_tree(self.model, feature_names=self.feature_names, filled=True)
+
+        preds = np.argmax(self.model.predict(X_test), axis=1)
+
+        # Find out whether predicting on a decision tree is the same as a neural network
+        report = classification_report(
+                    y_test, preds, 
+                    target_names=[str(cls) for cls in encoder.classes_],
+                    output_dict=True 
+                )
+        
+        return report
 
 class FidelityCheck():
     def __init__(self):
@@ -133,13 +149,21 @@ class FidelityCheck():
 
     # Need to import the MLP for fidelity check 
     def comparison(self):
-        self.fidelity = accuracy_score(mlp.predict(self.X_val), self.model.predict(self.X_val))
+        self.fidelity = accuracy_score(lung_cancer_mlp.LungCancerMLP.predict(self.X_val), self.model.predict(self.X_val))
         print(self.fidelity)
 
 # Running the pipeline
-handler = DataHandling()
 
+"""
+Make modifications to the pipeline startup
+to ensure that it works with a
+decision tree
+
+Some features may nnot be needed like the metrics 
+"""
 def pipeline():
+    gkf = GroupKFold(n_splits=4)
+
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
         handler.split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
         handler.transform()
