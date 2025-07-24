@@ -1,5 +1,6 @@
 import pandas as pd 
 import numpy as np 
+import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split, GroupKFold
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
@@ -124,7 +125,14 @@ class DecisionTreeSurrogate:
 
     def _buildmodel(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
-        self.model.fit()
+        
+        """
+        Insert all the parameteers and the history will be used again
+        for graphing 
+        """ 
+        history = self.model.fit(
+
+        )
 
         return self.model
 
@@ -142,6 +150,12 @@ class DecisionTreeSurrogate:
                 )
         
         return report
+    
+    def graph():    
+        plt.plot(history[])
+
+
+        plt.show()
 
 class FidelityCheck():
     def __init__(self):
