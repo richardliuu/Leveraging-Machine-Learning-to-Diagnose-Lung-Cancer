@@ -10,29 +10,13 @@ from ..class_based_models import lung_cancer_mlp
 
 SEED = 42
 
-"""
-I think I will want to clean up all the X variables as I think they could be
-passed through functions to reduce clutter in the classes
-
-Also makes the pipeline cleaner, with less variables are more ability to 
-edit the code 
-"""
 # Data preprocessing 
 class DataHandling:
-    def __init__(self,data=r"C:\Users\richa\OneDrive\Desktop\science2\data\surrogate_data.csv"):
-        self.encoder = LabelEncoder()
-        self.scaler = StandardScaler() 
-        self.smote = SMOTEENN()
-        self.data = data
-
-
-        # The long list of variables that I want to get rid of 
-        # Also exists in the other model files as well
+    def __init__(self):
         self.reports = []
         self.conf_matrices = []
         self.details = []
         self.history = []
-        self.roc_aucs = []
         self.predictions = []
 
         self.feature_cols = None
@@ -43,21 +27,9 @@ class DataHandling:
 
         self.X = None
         self.y = None
-        self.X_train_fold = None
-        self.X_test_fold = None
-        self.y_train_fold = None
-        self.y_test_fold = None
-        self.X_train_scaled = None
-        self.X_test_scaled = None
-        self.y_train_encoded = None
-        self.y_test_encoded = None
-        self.X_train_resampled = None
-        self.y_train_resampled
-        self.num_classes = None
-        self.y_test_cat = None
-        self.y_train_cat = None
         self.X_val = None
         self.y_val = None
+        self.num_classes = None
 
     @staticmethod
     def to_categorical(labels, num_classes=None):
@@ -67,7 +39,6 @@ class DataHandling:
         return np.eye(num_classes)[labels]
 
     def load_data(self):
-        # Insert file directory 
         data = pd.read_csv("data/surrogate_data.csv")
 
         # This may change because data from the predictions of the MLP are to be used instead 
@@ -82,34 +53,34 @@ class DataHandling:
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
 
     def split(self, X, y, data, train_idx, test_idx):
-        self.X_train_fold = X.iloc[train_idx]
-        self.y_train_fold = y.iloc[train_idx]
-        self.X_test_fold = X.iloc[test_idx]
-        self.y_test_fold = y.iloc[test_idx]
+        self.X_train = X.iloc[train_idx]
+        self.y_train = y.iloc[train_idx]
+        self.X_test = X.iloc[test_idx]
+        self.y_test = y.iloc[test_idx]
 
         self.train_patients = set(data.iloc[train_idx]['patient_id'])
         self.test_patients = set(data.iloc[test_idx]['patient_id'])
 
     def transform(self):
-        self.X_train_scaled = self.scaler.fit_transform(self.X_train_fold)
-        self.X_test_scaled = self.scaler.transform(self.X_test_fold)
-        self.y_train_encoded = self.encoder.fit_transform(self.y_train_fold)
-        self.y_test_encoded = self.encoder.transform(self.y_test_fold)
-        self.num_classes = len(self.encoder.classes_)
+        self.X_train = StandardScaler().fit_transform(self.X_train)
+        self.X_test = StandardScaler().transform(self.X_test)
+        self.y_train = LabelEncoder().fit_transform(self.y_train)
+        self.y_test = LabelEncoder().transform(self.y_test)
+        self.num_classes = len(LabelEncoder().classes_)
 
         # Could decide whether smote is used or not 
-        self.X_train_resampled, self.y_train_resampled = self.smote.fit_resample(self.X_train_scaled, self.y_train_encoded)
+        self.X_train, self.y_train = SMOTEENN().fit_resample(self.X_train, self.y_train)
 
     def put_to_categorical(self):
-        self.y_train_cat = self.to_categorical(self.y_train_resampled, num_classes=self.num_classes)
-        self.y_test_cat = self.to_categorical(self.y_test_encoded, num_classes=self.num_classes)
+        self.y_train = self.to_categorical(self.y_train, num_classes=self.num_classes)
+        self.y_test = self.to_categorical(self.y_test, num_classes=self.num_classes)
     
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            self.X_train_resampled, 
-            self.y_train_cat, 
+            self.X_train, 
+            self.y_train, 
             test_size=0.1, 
-            stratify=self.y_train_resampled, 
+            stratify=self.y_train, 
             random_state=SEED
         )
 
@@ -125,7 +96,7 @@ class DecisionTreeSurrogate:
         self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
 
         self.history = self.model.fit( 
-            self.X_train, self.y_train
+            self.X_train, self.y_train,
             sample_weight=None
         )
 
@@ -146,10 +117,11 @@ class DecisionTreeSurrogate:
         
         return report
       
-
     def graph(self):    
-        plt.plot(self.history[])
-
+        plt.plot(self.history['history'])
+        plt.xlabel()
+        plt.ylabel()
+        plt.title()
 
         plt.show()
 
@@ -178,7 +150,7 @@ def pipeline(self):
         handler.put_to_categorical()
         handler.validation_split()
 
- 
+
         model = DecisionTreeClassifier()
 
         # Tune this to fit decision tree architecture 
@@ -186,24 +158,23 @@ def pipeline(self):
             handler.X_train, handler.y_train, handler.X_val, handler.y_val
         )
 
-        report, c_matrix, auc = model.evaluate(
-            handler.X_test_scaled, handler.y_test_encoded, handler.encoder
+        report, c_matrix = model.evaluate(
+            handler.X_test, handler.y_test, handler.encoder
         )
 
-        y_pred = model.predict(handler.X_test_scaled)
+        y_pred = model.predict(handler.X_test)
         handler.predictions.append(y_pred)
 
-        c_matrix = confusion_matrix(handler.y_test_encoded, y_pred)
+        c_matrix = confusion_matrix(handler.y_test, y_pred)
         print(c_matrix)
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
-        handler.roc_aucs.append(auc)
         handler.history.append(history.history)
         handler.details.append({
             "fold": fold + 1,
-            "train_samples": len(handler.X_train_fold),
-            "test_samples": len(handler.X_test_fold),
+            "train_samples": len(handler.X_train),
+            "test_samples": len(handler.X_test),
             "accuracy": report['accuracy'],
             "epochs_trained": len(self.history.history['loss']),
         }) 
