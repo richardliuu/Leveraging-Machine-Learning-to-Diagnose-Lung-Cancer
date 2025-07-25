@@ -10,8 +10,6 @@ from ..class_based_models import lung_cancer_mlp
 
 SEED = 42
 
-# Class for dealing with preprocessing the data 
-
 """
 I think I will want to clean up all the X variables as I think they could be
 passed through functions to reduce clutter in the classes
@@ -19,7 +17,7 @@ passed through functions to reduce clutter in the classes
 Also makes the pipeline cleaner, with less variables are more ability to 
 edit the code 
 """
-
+# Data preprocessing 
 class DataHandling:
     def __init__(self,data=r"C:\Users\richa\OneDrive\Desktop\science2\data\surrogate_data.csv"):
         self.encoder = LabelEncoder()
@@ -125,34 +123,32 @@ class DecisionTreeSurrogate:
 
     def _buildmodel(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
-        
-        """
-        Insert all the parameteers and the history will be used again
-        for graphing 
-        """ 
-        history = self.model.fit(
 
+        self.history = self.model.fit( 
+            self.X_train, self.y_train
+            sample_weight=None
         )
 
-        return self.model
+        self.preds = self.model.predict(self.X_test_scaled)
 
-    def evaluate(self, X_test, y_test, encoder):
+        return self.model, self.history, self.preds
+
+    def evaluate(self, y_test, encoder):
         # Go back and check if feature_names is the variable to be called 
         plot_tree(self.model, feature_names=self.feature_names, filled=True)
 
-        preds = np.argmax(self.model.predict(X_test), axis=1)
-
         # Find out whether predicting on a decision tree is the same as a neural network
         report = classification_report(
-                    y_test, preds, 
+                    y_test, self.preds, 
                     target_names=[str(cls) for cls in encoder.classes_],
                     output_dict=True 
                 )
         
         return report
-    
-    def graph():    
-        plt.plot(history[])
+      
+
+    def graph(self):    
+        plt.plot(self.history[])
 
 
         plt.show()
@@ -166,8 +162,6 @@ class FidelityCheck():
         self.fidelity = accuracy_score(lung_cancer_mlp.LungCancerMLP.predict(self.X_val), self.model.predict(self.X_val))
         print(self.fidelity)
 
-# Running the pipeline
-
 """
 Make modifications to the pipeline startup
 to ensure that it works with a
@@ -175,7 +169,7 @@ decision tree
 
 Some features may nnot be needed like the metrics 
 """
-def pipeline():
+def pipeline(self):
     gkf = GroupKFold(n_splits=4)
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
@@ -184,11 +178,11 @@ def pipeline():
         handler.put_to_categorical()
         handler.validation_split()
 
-        # Fill in model specifications
-        model = ()
+ 
+        model = DecisionTreeClassifier()
 
         # Tune this to fit decision tree architecture 
-        history = model.train(
+        history = model.fit(
             handler.X_train, handler.y_train, handler.X_val, handler.y_val
         )
 
@@ -211,7 +205,7 @@ def pipeline():
             "train_samples": len(handler.X_train_fold),
             "test_samples": len(handler.X_test_fold),
             "accuracy": report['accuracy'],
-            "epochs_trained": len(history.history['loss']),
+            "epochs_trained": len(self.history.history['loss']),
         }) 
 
 handler = DataHandling()
