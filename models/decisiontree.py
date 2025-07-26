@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split, GroupKFold
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
 from ..class_based_models import lung_cancer_mlp
@@ -13,6 +13,9 @@ SEED = 42
 # Data preprocessing 
 class DataHandling:
     def __init__(self):
+        self.encoder = LabelEncoder()
+        self.scaler = StandardScaler()
+
         self.reports = []
         self.conf_matrices = []
         self.details = []
@@ -41,16 +44,19 @@ class DataHandling:
     def load_data(self):
         data = pd.read_csv("data/surrogate_data.csv")
 
-        # This may change because data from the predictions of the MLP are to be used instead 
-        # Predicting for y_pred of the MLP
-        self.X = data.drop(columns=["segment", "cancer_stage", "patient_id"])
-
-        # Change this to the y_pred of MLP
-        self.y = data['cancer_stage']
+        self.X = data.drop(columns=["segment", 
+                                    "true_label", 
+                                    "patient_id"
+                                    ])
+        
+        self.y = data['predicted_label']
         self.groups = data['patient_id']
         self.duplicates = data.duplicated(subset=self.feature_cols)
-        self.patient_labels = data.groupby('patient_id')['cancer_stage'].nunique()
+        self.patient_labels = data.groupby('patient_id')['true_label'].nunique()
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
+
+        # Storing this information may be useful for analysing the model
+        self.meta = data[['segment', 'true_label', 'predicted_label', 'patient_id']]
 
     def split(self, X, y, data, train_idx, test_idx):
         self.X_train = X.iloc[train_idx]
@@ -62,18 +68,14 @@ class DataHandling:
         self.test_patients = set(data.iloc[test_idx]['patient_id'])
 
     def transform(self):
-        self.X_train = StandardScaler().fit_transform(self.X_train)
-        self.X_test = StandardScaler().transform(self.X_test)
-        self.y_train = LabelEncoder().fit_transform(self.y_train)
-        self.y_test = LabelEncoder().transform(self.y_test)
-        self.num_classes = len(LabelEncoder().classes_)
+        self.X_train = self.scaler.fit_transform(self.X_train)
+        self.X_test = self.scaler.transform(self.X_test)
+        self.y_train = self.encoder.fit_transform(self.y_train)
+        self.y_test = self.encoder.transform(self.y_test)
+        self.num_classes = len(self.encoder.classes_)
 
         # Could decide whether smote is used or not 
         self.X_train, self.y_train = SMOTEENN().fit_resample(self.X_train, self.y_train)
-
-    def put_to_categorical(self):
-        self.y_train = self.to_categorical(self.y_train, num_classes=self.num_classes)
-        self.y_test = self.to_categorical(self.y_test, num_classes=self.num_classes)
     
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
@@ -95,34 +97,29 @@ class DecisionTreeSurrogate:
     def _buildmodel(self):
         self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
 
-        self.history = self.model.fit( 
-            self.X_train, self.y_train,
-            sample_weight=None
-        )
+        self.model.fit(self.X_train, self.y_train, sample_weight=None)
 
         self.preds = self.model.predict(self.X_test_scaled)
 
         return self.model, self.history, self.preds
 
-    def evaluate(self, y_test, encoder):
-        # Go back and check if feature_names is the variable to be called 
-        plot_tree(self.model, feature_names=self.feature_names, filled=True)
-
-        # Find out whether predicting on a decision tree is the same as a neural network
+    def evaluate(self, X_test, y_test, encoder):
+        plot_tree(self.model, feature_names=handler.feature_cols, filled=True)
         report = classification_report(
                     y_test, self.preds, 
                     target_names=[str(cls) for cls in encoder.classes_],
                     output_dict=True 
                 )
         
-        return report
+        y_pred = self.predict(X_test)
+        
+        return report, y_pred
       
     def graph(self):    
         plt.plot(self.history['history'])
         plt.xlabel()
         plt.ylabel()
         plt.title()
-
         plt.show()
 
 class FidelityCheck():
@@ -131,8 +128,15 @@ class FidelityCheck():
 
     # Need to import the MLP for fidelity check 
     def comparison(self):
-        self.fidelity = accuracy_score(lung_cancer_mlp.LungCancerMLP.predict(self.X_val), self.model.predict(self.X_val))
-        print(self.fidelity)
+        mlp_accuracy = lung_cancer_mlp.LungCancerMLP().predict(handler.X.val)
+        mlp_accuracy = np.argmax(mlp_accuracy, axis=1)
+
+        surrogate_preds = self.model.predict(handler.X_val)
+
+        self.fidelity = accuracy_score(mlp_accuracy, surrogate_preds)
+        print(f"Fidelity to MLP: {self.fidelity:.2%}")
+
+        f1 = f1_score(mlp_accuracy, surrogate_preds)
 
 """
 Make modifications to the pipeline startup
@@ -145,21 +149,17 @@ def pipeline(self):
     gkf = GroupKFold(n_splits=4)
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
-        handler.split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
+        handler.split(handler.X, handler.y, train_idx, test_idx)
         handler.transform()
-        handler.put_to_categorical()
         handler.validation_split()
 
+        model = DecisionTreeClassifier(num_classes=handler.num_classes)
+        model._buildmodel()
 
-        model = DecisionTreeClassifier()
-
-        # Tune this to fit decision tree architecture 
-        history = model.fit(
-            handler.X_train, handler.y_train, handler.X_val, handler.y_val
-        )
-
-        report, c_matrix = model.evaluate(
-            handler.X_test, handler.y_test, handler.encoder
+        report= model.evaluate(
+            handler.X_test, 
+            handler.y_test, 
+            handler.encoder
         )
 
         y_pred = model.predict(handler.X_test)
@@ -170,13 +170,11 @@ def pipeline(self):
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
-        handler.history.append(history.history)
         handler.details.append({
             "fold": fold + 1,
             "train_samples": len(handler.X_train),
             "test_samples": len(handler.X_test),
             "accuracy": report['accuracy'],
-            "epochs_trained": len(self.history.history['loss']),
         }) 
 
 handler = DataHandling()
