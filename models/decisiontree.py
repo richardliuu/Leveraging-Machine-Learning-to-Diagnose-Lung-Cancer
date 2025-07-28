@@ -95,7 +95,7 @@ class DecisionTreeSurrogate:
         self.preds = None
 
     def _buildmodel(self):
-        self.model = DecisionTreeClassifier(max_depth=6, random_state=SEED)
+        self.model = DecisionTreeClassifier(criterion="entropy", max_depth=6, random_state=SEED)
         self.model.fit(self.X_train, self.y_train, sample_weight=None)
 
         return self.model, self.history, self.preds
@@ -146,8 +146,12 @@ def pipeline(self):
         handler.transform()
         handler.validation_split()
 
-        model = DecisionTreeClassifier()
+        model = DecisionTreeClassifier(criterion="entropy", max_depth=6, random_state=SEED)
         model.fit(handler.X_train, handler.y_train, sample_weight=None)
+        accuracy = model.score(handler.X_test, handler.y_test, sample_weight=None)
+
+        # model is cheating 
+        print(accuracy)
 
         #report= model.evaluate(handler.X_test, handler.y_test, handler.encoder)
 

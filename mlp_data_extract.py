@@ -222,11 +222,15 @@ def pipeline(handler):
         print(c_matrix)
         print(y_pred)
 
+
         results_df = handler.X_test_fold.copy()
         results_df['true_label'] = handler.y_test_fold.values
         results_df['predicted_label'] = y_pred
 
-        results_df.to_csv('data/surrogate_data.csv')
+        training_data = pd.read_csv(handler.data)
+        results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
+        results_df['segment'] = training_data.iloc[test_idx]['segment'].values
+        results_df.to_csv('data/surrogate_data.csv', index=False)
 
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
