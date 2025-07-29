@@ -7,15 +7,23 @@ import pandas as pd
 import numpy as np 
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.model_selection import train_test_split, GroupKFold
+from sklearn.model_selection import train_test_split, GroupKFold, GridSearchCV
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
-from class_based_models.lung_cancer_mlp import LungCancerMLP
+#from class_based_models.lung_cancer_mlp import LungCancerMLP
 
 SEED = 42
 
-# Requires groups (not included in the training data)
+
+"""
+IMPORTANT NOTE
+
+Consider using GridSearch to look for the best paramaters of the decision tree
+
+Also need to plot the accuracy and tree of the thing to look at its thought process 
+for explainability 
+"""
 
 # Data preprocessing 
 class DataHandling:
@@ -45,7 +53,7 @@ class DataHandling:
     def load_data(self):
         self.data = pd.read_csv("data/surrogate_data.csv")
 
-        self.X = self.data.drop(columns=["segment", "true_label", "patient_id"])
+        self.X = self.data.drop(columns=["segment", "true_label", "patient_id", "predicted_label"])
         
         self.y = self.data['predicted_label']
         
@@ -90,15 +98,9 @@ class DataHandling:
 
 class DecisionTreeSurrogate:
     def __init__(self, num_classes):
-        self.model = self._buildmodel()
+        self.model = None
         self.num_classes = num_classes
         self.preds = None
-
-    def _buildmodel(self):
-        self.model = DecisionTreeClassifier(criterion="entropy", max_depth=6, random_state=SEED)
-        self.model.fit(self.X_train, self.y_train, sample_weight=None)
-
-        return self.model, self.history, self.preds
 
     def evaluate(self, X_test, y_test):
         plot_tree(self.model, feature_names=handler.feature_cols, class_names=handler.encoder.classes_, filled=True)
@@ -119,6 +121,7 @@ class DecisionTreeSurrogate:
         plt.title()
         plt.show()
 
+"""
 class FidelityCheck():
     def __init__(self):
         self.fidelity = None
@@ -135,23 +138,39 @@ class FidelityCheck():
         f1 = f1_score(mlp_accuracy, surrogate_preds)
 
         return f1
+"""
 
 # Use f1 somewhere (print it)
 
 def pipeline(self):
     gkf = GroupKFold(n_splits=4)
 
+    # For tuning 
+    params = {
+        'max_depth': [6, 10, 15],
+        'criterion': ['entropy'],
+        'splitter': ['best'],
+        'min_samples_leaf': [1, 3, 5],
+        'min_samples_split': [2, 5, 10],
+    }
+
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
         handler.split(handler.X, handler.y, handler.data, train_idx, test_idx)
         handler.transform()
         handler.validation_split()
 
-        model = DecisionTreeClassifier(criterion="entropy", max_depth=6, random_state=SEED)
+        model = DecisionTreeClassifier(criterion="entropy", max_depth=10, random_state=SEED, splitter='best')
         model.fit(handler.X_train, handler.y_train, sample_weight=None)
         accuracy = model.score(handler.X_test, handler.y_test, sample_weight=None)
 
         # model is cheating 
         print(accuracy)
+
+        grid = GridSearchCV(DecisionTreeClassifier(random_state=SEED), params, cv=5, scoring='accuracy')
+        grid.fit(handler.X_train, handler.y_train)
+
+        print("Best parameters:", grid.best_params_)
+        print("Best score:", grid.best_score_)
 
         #report= model.evaluate(handler.X_test, handler.y_test, handler.encoder)
 
