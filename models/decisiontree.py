@@ -6,7 +6,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pandas as pd 
 import numpy as np 
 import matplotlib.pyplot as plt
-from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.tree import DecisionTreeClassifier, plot_tree, export_text, export_graphviz
 from sklearn.model_selection import train_test_split, GroupKFold, GridSearchCV
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
@@ -103,7 +103,6 @@ class DecisionTreeSurrogate:
         self.preds = None
 
     def evaluate(self, X_test, y_test):
-        plot_tree(self.model, feature_names=handler.feature_cols, class_names=handler.encoder.classes_, filled=True)
         report = classification_report(
                     y_test, self.preds, 
                     target_names=handler.encoder.classes_,
@@ -172,7 +171,9 @@ def pipeline(self):
         print("Best parameters:", grid.best_params_)
         print("Best score:", grid.best_score_)
 
-        #report= model.evaluate(handler.X_test, handler.y_test, handler.encoder)
+        #plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
+
+        print(export_graphviz(model, feature_names=handler.feature_cols))
 
         y_pred = model.predict(handler.X_test)
         handler.predictions.append(y_pred)
