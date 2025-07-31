@@ -24,6 +24,10 @@ CNN (Convolutional Neural Network)
 1. A surrogate model attempts to explain the predictions of the MLP
 
 
+# Limitations
+1. Surrogate model interpretation may not be 
+
+
 # Getting Started 
 1. Clone the repository
 2. Download dependencies

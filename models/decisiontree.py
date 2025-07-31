@@ -13,6 +13,28 @@ from imblearn.combine import SMOTEENN
 #from class_based_models.lung_cancer_mlp import LungCancerMLP
 
 """
+NOTE to self
+
+Use SMOTE on the training data because there is a big imbalance
+
+Example: 1st Training Fold
+
+0.9495798319327731
+[[  0   1]
+ [  5 113]]
+
+The Confusion Matrix Indicates that mainly Class 1 is being predicted as it is the majority class 
+
+Potential Features:
+    - Compare SHAP values for the MLP and surrogate model
+
+
+"""
+
+
+
+
+"""
 Setting the seed to lock the training environment for reproducable results 
 """
 
@@ -24,9 +46,13 @@ random.seed(SEED)
 os.environ['PYTHONHASHSEED'] = str(SEED)
 
 """
-The DataHandling Class handles and transforms the MLP training data
+The DataHandling Class handles and transforms the MLP performance data into training data for this surrogate model. 
 
-The instantiated variables are transformed through the class functions.
+In load_data(), training samples are handled such that the same patient does not appear in the training or validation set. 
+This is to prevent data leakage, causing the model's performance to be skewed.
+
+The instantiated variables for training and validation are transformed through the class functions using LabelEncoder and StandardScaler.
+Data Splits are handled in validation_split() 
 """
 
 class DataHandling:
@@ -98,6 +124,14 @@ class DataHandling:
     def get_data(self):
         return self.X, self.y, self.X_train_fold, self.y_train_fold, self.X_test_fold, self.y_test_fold
 
+"""
+IMPORTANT NOTE
+
+The DecisionTreeSurrogate Class may not be needed as training is handled in the pipeline anyways
+
+- Could remove clutter by reducing this 
+
+"""
 class DecisionTreeSurrogate:
     def __init__(self, num_classes):
         self.model = None
@@ -122,6 +156,13 @@ class DecisionTreeSurrogate:
         plt.title()
         plt.show()
 
+""" 
+The class is to check the fidelity of the surrogate model and the MLP 
+
+This is based on the accuracy of the surrogate model, as its predictions are to replicate the predicted labels of the MLP
+
+R2 Value can be considered to also check for fidelity of the surrogate and MLP. Looking for around 70% fidelity 
+
 """
 class FidelityCheck():
     def __init__(self):
@@ -139,12 +180,12 @@ class FidelityCheck():
         f1 = f1_score(mlp_accuracy, surrogate_preds)
 
         return f1
-"""
+
 
 # Use f1 somewhere (print it)
 
 """
-The pipeline function includes the paramaters of the model and 
+The pipeline function includes the paramaters of the model and performance logging
 """
 
 def pipeline(self):
@@ -154,54 +195,98 @@ def pipeline(self):
     params = {
         'max_depth': [6, 10, 15],
         'criterion': ['entropy'],
-        'splitter': ['best'],
-        'min_samples_leaf': [1, 3, 5],
-        'min_samples_split': [2, 5, 10],
+        'splitter': ['best', 'random'],
+        'min_samples_leaf': [2, 6, 10],
+        'min_samples_split': [5, 10, 15],
+        'max_leaf_nodes': [5, 15, 20],
     }
+
+    """
+    grid = GridSearchCV(DecisionTreeClassifier(random_state=SEED), params, cv=5, scoring='accuracy')
+    grid.fit(handler.X_train, handler.y_train)
+
+    print("Best parameters:", grid.best_params_)
+    print("Best score:", grid.best_score_)
+    """
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
         handler.split(handler.X, handler.y, handler.data, train_idx, test_idx)
         handler.transform()
         handler.validation_split()
 
+        """
+        Insert the parameters for the DecisionTreeClassifier
+
+        The goal of the model is to be a surrogate for the 'black box' MLP model
+        The parameters impact fidelity with the 'black box' model
+
+        Parameters: 
+            criterion:     
+            max_depth:    
+            min_samples_leaf:  
+            min_samples_split:  
+            max_leaf_nodes:
+            splitter='best' or 'random'
+            random_state=SEED: This variable will be set to the seed to ensure training produces the same results everytime
+        """
+
         model = DecisionTreeClassifier(
             criterion="entropy", 
-            max_depth=5, 
-            min_samples_leaf=5,
-            min_samples_split=10,
-            random_state=SEED, 
-            splitter='best'
-
+            max_depth=6, 
+            min_samples_leaf=6,
+            min_samples_split=15,
+            max_leaf_nodes=20,
+            splitter='best',
+            random_state=SEED
             )
         
         model.fit(handler.X_train, handler.y_train, sample_weight=None)
+
+        """
+        Logged metrics to view model performance 
+
+        Includes: 
+            Accuracy: model.score()
+            Confusion Matrix: confusion_matrix()
+            Prediction Function: model.predict()
+            F1 score: f1_score()
+            Tree Size: node_count and max_depth
+
+        Explainability tools: 
+            plot_tree()
+                - 
+
+            export_graphviz() and export_text()
+                - prints out the 
+
+        NOTE for self
+
+        Explainability tools could be made into a seperate class to make the pipeline easier to modify
+        Also need to include the names of the features when the trees are printed which clarifies the model's decisions
+
+        Currently looks like feature_2 -> feature 1 ... 
+        """
+
         accuracy = model.score(handler.X_test, handler.y_test, sample_weight=None)
+        y_pred = model.predict(handler.X_test)
+        c_matrix = confusion_matrix(handler.y_test, y_pred)
+        model_f1 = f1_score(handler.X_test, y_pred)
 
         print(accuracy)
-
-        """grid = GridSearchCV(DecisionTreeClassifier(random_state=SEED), params, cv=5, scoring='accuracy')
-        grid.fit(handler.X_train, handler.y_train)
-
-        print("Best parameters:", grid.best_params_)
-        print("Best score:", grid.best_score_)
-        """
+        print("Node Size", model.tree_.node_count)
+        print("Max Depth", model.tree_.max_depth)
 
         #plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
 
         #print(export_graphviz(model, feature_names=handler.feature_cols))
 
-        y_pred = model.predict(handler.X_test)
+        
         handler.predictions.append(y_pred)
 
-        c_matrix = confusion_matrix(handler.y_test, y_pred)
         print(c_matrix)
 
         #handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
-
-        print("Node Size", model.tree_.node_count)
-        print("Max Depth", model.tree_.max_depth)
-
 
 handler = DataHandling()
 handler.load_data()
