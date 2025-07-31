@@ -2,7 +2,6 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
 import pandas as pd 
 import numpy as np 
 import matplotlib.pyplot as plt
@@ -13,19 +12,23 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
 #from class_based_models.lung_cancer_mlp import LungCancerMLP
 
+"""
+Setting the seed to lock the training environment for reproducable results 
+"""
+
+import random
+
 SEED = 42
-
+np.random.seed(SEED)
+random.seed(SEED)
+os.environ['PYTHONHASHSEED'] = str(SEED)
 
 """
-IMPORTANT NOTE
+The DataHandling Class handles and transforms the MLP training data
 
-Consider using GridSearch to look for the best paramaters of the decision tree
-
-Also need to plot the accuracy and tree of the thing to look at its thought process 
-for explainability 
+The instantiated variables are transformed through the class functions.
 """
 
-# Data preprocessing 
 class DataHandling:
     def __init__(self):
         self.encoder = LabelEncoder()
@@ -81,7 +84,6 @@ class DataHandling:
         self.y_test = self.encoder.transform(self.y_test)
         self.num_classes = len(self.encoder.classes_)
 
-        # Could decide whether smote is used or not 
         self.X_train, self.y_train = SMOTEENN().fit_resample(self.X_train, self.y_train)
     
     def validation_split(self):
@@ -141,6 +143,10 @@ class FidelityCheck():
 
 # Use f1 somewhere (print it)
 
+"""
+The pipeline function includes the paramaters of the model and 
+"""
+
 def pipeline(self):
     gkf = GroupKFold(n_splits=4)
 
@@ -158,22 +164,31 @@ def pipeline(self):
         handler.transform()
         handler.validation_split()
 
-        model = DecisionTreeClassifier(criterion="entropy", max_depth=10, random_state=SEED, splitter='best')
+        model = DecisionTreeClassifier(
+            criterion="entropy", 
+            max_depth=5, 
+            min_samples_leaf=5,
+            min_samples_split=10,
+            random_state=SEED, 
+            splitter='best'
+
+            )
+        
         model.fit(handler.X_train, handler.y_train, sample_weight=None)
         accuracy = model.score(handler.X_test, handler.y_test, sample_weight=None)
 
-        # model is cheating 
         print(accuracy)
 
-        grid = GridSearchCV(DecisionTreeClassifier(random_state=SEED), params, cv=5, scoring='accuracy')
+        """grid = GridSearchCV(DecisionTreeClassifier(random_state=SEED), params, cv=5, scoring='accuracy')
         grid.fit(handler.X_train, handler.y_train)
 
         print("Best parameters:", grid.best_params_)
         print("Best score:", grid.best_score_)
+        """
 
         #plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
 
-        print(export_graphviz(model, feature_names=handler.feature_cols))
+        #print(export_graphviz(model, feature_names=handler.feature_cols))
 
         y_pred = model.predict(handler.X_test)
         handler.predictions.append(y_pred)
@@ -183,13 +198,10 @@ def pipeline(self):
 
         #handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
-        """handler.details.append({
-            "fold": fold + 1,
-            "train_samples": len(handler.X_train),
-            "test_samples": len(handler.X_test),
-            "accuracy": report['accuracy'],
-        }) 
-        """
+
+        print("Node Size", model.tree_.node_count)
+        print("Max Depth", model.tree_.max_depth)
+
 
 handler = DataHandling()
 handler.load_data()
