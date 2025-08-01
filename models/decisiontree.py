@@ -10,29 +10,14 @@ from sklearn.model_selection import train_test_split, GroupKFold, GridSearchCV
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
+from imblearn.over_sampling import SMOTE, RandomOverSampler
 #from class_based_models.lung_cancer_mlp import LungCancerMLP
+from collections import Counter
 
 """
-NOTE to self
-
-Use SMOTE on the training data because there is a big imbalance
-
-Example: 1st Training Fold
-
-0.9495798319327731
-[[  0   1]
- [  5 113]]
-
-The Confusion Matrix Indicates that mainly Class 1 is being predicted as it is the majority class 
-
 Potential Features:
     - Compare SHAP values for the MLP and surrogate model
-
-
 """
-
-
-
 
 """
 Setting the seed to lock the training environment for reproducable results 
@@ -47,9 +32,6 @@ os.environ['PYTHONHASHSEED'] = str(SEED)
 
 """
 The DataHandling Class handles and transforms the MLP performance data into training data for this surrogate model. 
-
-In load_data(), training samples are handled such that the same patient does not appear in the training or validation set. 
-This is to prevent data leakage, causing the model's performance to be skewed.
 
 The instantiated variables for training and validation are transformed through the class functions using LabelEncoder and StandardScaler.
 Data Splits are handled in validation_split() 
@@ -79,20 +61,21 @@ class DataHandling:
         self.y_val = None
         self.num_classes = None
 
+    """
+    Training samples are handled such that the same patient does not appear in the training or validation set. 
+    This is to prevent data leakage, causing the model's performance to be skewed.
+    """
+
     def load_data(self):
         self.data = pd.read_csv("data/surrogate_data.csv")
-
         self.X = self.data.drop(columns=["segment", "true_label", "patient_id", "predicted_label"])
-        
         self.y = self.data['predicted_label']
         
+        # Data Leakage Prevention
         self.groups = self.data['patient_id']
         self.duplicates = self.data.duplicated(subset=self.feature_cols)
         self.patient_labels = self.data.groupby('patient_id')['true_label'].nunique()
         self.inconsistent_patients = self.patient_labels[self.patient_labels > 1]
-
-        # Storing this information may be useful for analysing the model
-        self.meta = self.data[['segment', 'true_label', 'predicted_label']]
 
     def split(self, X, y, data, train_idx, test_idx):
         self.X_train = X.iloc[train_idx]
@@ -110,51 +93,19 @@ class DataHandling:
         self.y_test = self.encoder.transform(self.y_test)
         self.num_classes = len(self.encoder.classes_)
 
-        self.X_train, self.y_train = SMOTEENN().fit_resample(self.X_train, self.y_train)
+        self.X_train, self.y_train = RandomOverSampler(sampling_strategy='auto', random_state=SEED).fit_resample(self.X_train, self.y_train)
     
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
             self.X_train, 
             self.y_train, 
-            test_size=0.1, 
+            test_size=0.15, 
             stratify=self.y_train, 
             random_state=SEED
         )
 
     def get_data(self):
         return self.X, self.y, self.X_train_fold, self.y_train_fold, self.X_test_fold, self.y_test_fold
-
-"""
-IMPORTANT NOTE
-
-The DecisionTreeSurrogate Class may not be needed as training is handled in the pipeline anyways
-
-- Could remove clutter by reducing this 
-
-"""
-class DecisionTreeSurrogate:
-    def __init__(self, num_classes):
-        self.model = None
-        self.num_classes = num_classes
-        self.preds = None
-
-    def evaluate(self, X_test, y_test):
-        report = classification_report(
-                    y_test, self.preds, 
-                    target_names=handler.encoder.classes_,
-                    output_dict=True 
-                )
-
-        self.y_preds = self.model.predict(X_test)
-        
-        return report, self.y_preds
-      
-    def graph(self):    
-        plt.plot(self.history['history'])
-        plt.xlabel()
-        plt.ylabel()
-        plt.title()
-        plt.show()
 
 """ 
 The class is to check the fidelity of the surrogate model and the MLP 
@@ -177,21 +128,14 @@ class FidelityCheck():
         self.fidelity = accuracy_score(mlp_accuracy, surrogate_preds)
         print(f"Fidelity to MLP: {self.fidelity:.2%}")
 
-        f1 = f1_score(mlp_accuracy, surrogate_preds)
-
-        return f1
-
-
-# Use f1 somewhere (print it)
-
 """
-The pipeline function includes the paramaters of the model and performance logging
+Pipeline function includes the paramaters of the model and performance logging
 """
 
 def pipeline(self):
     gkf = GroupKFold(n_splits=4)
 
-    # For tuning 
+    # For Grid Search tuning 
     params = {
         'max_depth': [6, 10, 15],
         'criterion': ['entropy'],
@@ -213,6 +157,13 @@ def pipeline(self):
         handler.split(handler.X, handler.y, handler.data, train_idx, test_idx)
         handler.transform()
         handler.validation_split()
+
+        label_counts = Counter(handler.y_train)
+        min_class_size = min(label_counts.values())
+
+        if min_class_size < 5:
+            print(f"Skipping fold {fold + 1} due to class imbalance: {label_counts}")
+            continue  # Skip this fold
 
         """
         Insert the parameters for the DecisionTreeClassifier
@@ -237,6 +188,7 @@ def pipeline(self):
             min_samples_split=15,
             max_leaf_nodes=20,
             splitter='best',
+            class_weight='balanced',
             random_state=SEED
             )
         
@@ -270,23 +222,15 @@ def pipeline(self):
         accuracy = model.score(handler.X_test, handler.y_test, sample_weight=None)
         y_pred = model.predict(handler.X_test)
         c_matrix = confusion_matrix(handler.y_test, y_pred)
-        model_f1 = f1_score(handler.X_test, y_pred)
 
+        print(classification_report(handler.y_test, y_pred, target_names=[str(cls) for cls in handler.encoder.classes_]))
         print(accuracy)
+        print(c_matrix)
         print("Node Size", model.tree_.node_count)
         print("Max Depth", model.tree_.max_depth)
 
         #plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
-
         #print(export_graphviz(model, feature_names=handler.feature_cols))
-
-        
-        handler.predictions.append(y_pred)
-
-        print(c_matrix)
-
-        #handler.reports.append(report)
-        handler.conf_matrices.append(c_matrix)
 
 handler = DataHandling()
 handler.load_data()
