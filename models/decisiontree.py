@@ -2,6 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import shap
 import pandas as pd 
 import numpy as np 
 import matplotlib.pyplot as plt
@@ -9,8 +10,8 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree, export_text, export_
 from sklearn.model_selection import train_test_split, GroupKFold, GridSearchCV
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from imblearn.over_sampling import SMOTE
 from imblearn.combine import SMOTEENN
-from imblearn.over_sampling import SMOTE, RandomOverSampler
 #from class_based_models.lung_cancer_mlp import LungCancerMLP
 from collections import Counter
 
@@ -70,6 +71,7 @@ class DataHandling:
         self.data = pd.read_csv("data/surrogate_data.csv")
         self.X = self.data.drop(columns=["segment", "true_label", "patient_id", "predicted_label"])
         self.y = self.data['predicted_label']
+        self.feature_cols = self.X.columns.tolist()
         
         # Data Leakage Prevention
         self.groups = self.data['patient_id']
@@ -92,10 +94,9 @@ class DataHandling:
         self.y_train = self.encoder.fit_transform(self.y_train)
         self.y_test = self.encoder.transform(self.y_test)
         self.num_classes = len(self.encoder.classes_)
-
-        self.X_train, self.y_train = RandomOverSampler(sampling_strategy='auto', random_state=SEED).fit_resample(self.X_train, self.y_train)
     
     def validation_split(self):
+
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
             self.X_train, 
             self.y_train, 
@@ -104,15 +105,14 @@ class DataHandling:
             random_state=SEED
         )
 
-    def get_data(self):
-        return self.X, self.y, self.X_train_fold, self.y_train_fold, self.X_test_fold, self.y_test_fold
+        self.X_train, self.y_train = SMOTEENN(sampling_strategy='auto', random_state=SEED).fit_resample(self.X_train, self.y_train)
 
 """ 
 The class is to check the fidelity of the surrogate model and the MLP 
 
 This is based on the accuracy of the surrogate model, as its predictions are to replicate the predicted labels of the MLP
 
-R2 Value can be considered to also check for fidelity of the surrogate and MLP. Looking for around 70% fidelity 
+NOTE R2 Value can be considered to also check for fidelity of the surrogate and MLP. Looking for around 70% fidelity 
 
 """
 class FidelityCheck():
@@ -157,13 +157,6 @@ def pipeline(self):
         handler.split(handler.X, handler.y, handler.data, train_idx, test_idx)
         handler.transform()
         handler.validation_split()
-
-        label_counts = Counter(handler.y_train)
-        min_class_size = min(label_counts.values())
-
-        if min_class_size < 5:
-            print(f"Skipping fold {fold + 1} due to class imbalance: {label_counts}")
-            continue  # Skip this fold
 
         """
         Insert the parameters for the DecisionTreeClassifier
@@ -210,17 +203,15 @@ def pipeline(self):
 
             export_graphviz() and export_text()
                 - prints out the 
-
-        NOTE for self
-
-        Explainability tools could be made into a seperate class to make the pipeline easier to modify
-        Also need to include the names of the features when the trees are printed which clarifies the model's decisions
-
-        Currently looks like feature_2 -> feature 1 ... 
         """
+
+        #prob = model.predict_proba(handler.X_test)
+        #print(prob)
 
         accuracy = model.score(handler.X_test, handler.y_test, sample_weight=None)
         y_pred = model.predict(handler.X_test)
+        print(np.unique(y_pred, return_counts=True))
+
         c_matrix = confusion_matrix(handler.y_test, y_pred)
 
         print(classification_report(handler.y_test, y_pred, target_names=[str(cls) for cls in handler.encoder.classes_]))
@@ -228,9 +219,21 @@ def pipeline(self):
         print(c_matrix)
         print("Node Size", model.tree_.node_count)
         print("Max Depth", model.tree_.max_depth)
+        plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
+        print(export_graphviz(model, feature_names=handler.feature_cols))
 
-        #plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
-        #print(export_graphviz(model, feature_names=handler.feature_cols))
+
+        X_val_df = pd.DataFrame(handler.X_val, columns=handler.feature_cols)
+
+        print(X_val_df.shape)  # Should be (56, 37)
+
+        explainer = shap.TreeExplainer(model)
+        shap_values = explainer.shap_values(X_val_df)
+
+        print(np.array(shap_values).shape)  # (56, 37, 2)
+
+        # Class 1 SHAP values for binary classification
+        shap.summary_plot(shap_values[..., 1], X_val_df)
 
 handler = DataHandling()
 handler.load_data()
