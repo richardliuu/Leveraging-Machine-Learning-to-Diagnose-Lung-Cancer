@@ -1,3 +1,4 @@
+import shap
 import pandas as pd
 import numpy as np
 import tensorflow as tf 
@@ -23,9 +24,15 @@ tf.random.set_seed(SEED)
 tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
-# Does not include making predictions outside of Cross Validation or Plotting/Summaries 
-# Appends data 
-# Look over generalizability because val accuracy is quite high 
+"""
+NOTE
+
+Tune hyper parameters
+
+and SMOTE to balance the data a little more 
+
+Clean the model: unneccesary variables such as X_resampled ...
+"""
 
 class DataHandling:
     def __init__(self, data=r"data/binary_features_log.csv"):
@@ -43,27 +50,10 @@ class DataHandling:
 
         self.X = None
         self.y = None
-
-        self.X_train_fold = None
-        self.y_train_fold = None
-        self.X_test_fold = None
-        self.y_test_fold = None
-
-        self.X_train_scaled = None
-        self.X_test_scaled = None
-        self.y_train_encoded = None
-        self.y_test_encoded = None
-
-        self.y_train_cat = None
-        self.y_test_cat = None
-
         self.X_train = None
         self.X_val = None
         self.y_train = None
         self.y_val = None
-
-        self.X_train_resampled = None
-        self.y_train_resampled = None
 
         self.num_classes = None
         self.feature_cols = None
@@ -80,6 +70,8 @@ class DataHandling:
         data = pd.read_csv("data/binary_features_log.csv")
         self.X = data.drop(columns=['segment', 'cancer_stage', 'patient_id'])
         self.y = data['cancer_stage']
+        self.feature_cols = self.X.columns.tolist()
+
         self.groups = data['patient_id']
         self.duplicates = data.duplicated(subset=self.feature_cols)
         self.patient_labels = data.groupby('patient_id')['cancer_stage'].nunique()
@@ -96,34 +88,38 @@ class DataHandling:
         return self.duplicates.sum() == 0 and len(self.inconsistent_patients) == 0
 
     def split(self, X, y, data, train_idx, test_idx):
-        self.X_train_fold = X.iloc[train_idx]
-        self.y_train_fold = y.iloc[train_idx]
-        self.X_test_fold = X.iloc[test_idx]
-        self.y_test_fold = y.iloc[test_idx]
+        self.X_train = X.iloc[train_idx]
+        self.y_train = y.iloc[train_idx]
+        self.X_test = X.iloc[test_idx]
+        self.y_test = y.iloc[test_idx]
 
         self.train_patients = set(data.iloc[train_idx]['patient_id'])
         self.test_patients = set(data.iloc[test_idx]['patient_id'])
 
     def transform(self):
-        self.X_train_scaled = self.scaler.fit_transform(self.X_train_fold)
-        self.X_test_scaled = self.scaler.transform(self.X_test_fold)
-        self.y_train_encoded = self.encoder.fit_transform(self.y_train_fold)
-        self.y_test_encoded = self.encoder.transform(self.y_test_fold)
+        # Scaled data 
+        self.X_train = self.scaler.fit_transform(self.X_train)
+        self.X_test = self.scaler.transform(self.X_test)
+
+        # Encoded
+        self.y_train = self.encoder.fit_transform(self.y_train)
+        self.y_test = self.encoder.transform(self.y_test)
         self.num_classes = len(self.encoder.classes_)
-        self.X_train_resampled, self.y_train_resampled = self.smote.fit_resample(self.X_train_scaled, self.y_train_encoded)
+        self.X_train, self.y_train = self.smote.fit_resample(self.X_train, self.y_train)
 
     def put_to_categorical(self):
-        self.y_train_cat = to_categorical(self.y_train_resampled, num_classes=self.num_classes)
-        self.y_test_cat = to_categorical(self.y_test_encoded, num_classes=self.num_classes)
+        self.y_train = to_categorical(self.y_train, num_classes=self.num_classes)
+        self.y_test = to_categorical(self.y_test, num_classes=self.num_classes)
     
+    # Takes in resampled X_train, categorical y_train and resampled y_train for stratify
     def validation_split(self):
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-        self.X_train_resampled, self.y_train_cat, test_size=0.1, 
-        stratify=self.y_train_resampled, random_state=SEED
+        self.X_train, 
+        self.y_train, 
+        test_size=0.1, 
+        stratify=self.y_train, 
+        random_state=SEED
         )
-
-    def get_data(self):
-        return self.X, self.y, self.X_train_fold, self.y_train_fold, self.X_test_fold, self.y_test_fold
 
 class LungCancerMLP:
     def __init__(self, input_dim, num_classes):
@@ -133,11 +129,7 @@ class LungCancerMLP:
 
     def _buildmodel(self):
         model = Sequential([
-            Input(shape=(self.input_dim,)),
-            #Dense(512, activation='relu'),
-            #BatchNormalization(),
-            #Dropout(0.4),
-            
+            Input(shape=(self.input_dim,)),    
             Dense(256, activation='relu'),
             BatchNormalization(),
             Dropout(0.3),
@@ -150,7 +142,7 @@ class LungCancerMLP:
             BatchNormalization(),
             Dropout(0.3),
             
-            Dense(self.num_classes, activation='softmax')
+            Dense(self.num_classes, activation='sigmoid')
         ])
         
         model.compile(optimizer='adam',
@@ -160,13 +152,26 @@ class LungCancerMLP:
         return model
 
     def train(self, X_train, y_train, X_val, y_val, epochs=50, batch_size=16):
-        early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights = True)
-        lr_schedule = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, verbose = 1 )
+        early_stopping = EarlyStopping(
+            monitor='val_loss', 
+            patience=5, 
+            restore_best_weights = True
+            )
+        
+        lr_schedule = ReduceLROnPlateau(
+            monitor='val_loss', 
+            factor=0.1, 
+            patience=3, 
+            verbose = 1 
+            )
 
         history = self.model.fit(
-            X_train, y_train, validation_data = (X_val, y_val), 
-            epochs = epochs, batch_size = batch_size, 
-            callbacks = [early_stopping, lr_schedule], verbose = 1 
+            X_train, y_train, 
+            validation_data = (X_val, y_val), 
+            epochs = epochs, 
+            batch_size = batch_size, 
+            callbacks = [early_stopping, lr_schedule], 
+            verbose = 1 
         )
 
         return history 
@@ -190,14 +195,14 @@ class LungCancerMLP:
 
         return report, c_matrix, auc 
     
-    def predict(self, X):
+    def predict(self, X)
         y_pred_prob = self.model.predict(X, verbose=0)
         y_pred = np.argmax(y_pred_prob, axis=1)
 
         return y_pred 
 
 def pipeline(handler):
-    gkf = GroupKFold(n_splits=5)
+    gkf = GroupKFold(n_splits=4)
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
         handler.split(handler.X, handler.y, pd.read_csv(handler.data), train_idx, test_idx)
@@ -211,14 +216,19 @@ def pipeline(handler):
         )
 
         history = model.train(
-            handler.X_train, handler.y_train, handler.X_val, handler.y_val
+            handler.X_train, 
+            handler.y_train, 
+            handler.X_val, 
+            handler.y_val
         )
 
         report, c_matrix, auc = model.evaluate(
-            handler.X_test_scaled, handler.y_test_encoded, handler.encoder
+            handler.X_test, 
+            handler.y_test, 
+            handler.encoder
         )
 
-        y_pred = model.predict(handler.X_test_scaled)
+        y_pred = model.predict(handler.X_test)
 
         handler.predictions.append(y_pred)
         handler.reports.append(report)
@@ -227,8 +237,8 @@ def pipeline(handler):
         handler.history.append(history.history)
         handler.details.append({
             "fold": fold + 1,
-            "train_samples": len(handler.X_train_fold),
-            "test_samples": len(handler.X_test_fold),
+            "train_samples": len(handler.X_train),
+            "test_samples": len(handler.X_test),
             "accuracy": report['accuracy'],
             "epochs_trained": len(history.history['loss']),
         })
@@ -251,6 +261,33 @@ def pipeline(handler):
         print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
         
         print(c_matrix)
+        
+        """
+        # Convert to DataFrame
+        X_val_df = pd.DataFrame(handler.X_val, columns=handler.feature_cols)
+        X_explain = X_val_df.iloc[:]
+        X_explain_np = X_explain.to_numpy()
+
+        # Background for SHAP
+        background = X_val_df.sample(n=20, random_state=42).to_numpy()
+        explainer = shap.KernelExplainer(model.model.predict, background)
+        shap_values = explainer.shap_values(X_explain_np)
+
+        # If output is a 3D array: (samples, features, classes)
+        if isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+            print("SHAP values shape (3D):", shap_values.shape)
+            class_index = 1  
+            shap_vals_to_plot = shap_values[:, :, class_index]
+        else:
+            shap_vals_to_plot = shap_values[1] 
+
+        # Confirm shape match
+        assert shap_vals_to_plot.shape == X_explain_np.shape, \
+            f"SHAP values shape {shap_vals_to_plot.shape} != input shape {X_explain_np.shape}"
+
+        shap.summary_plot(shap_vals_to_plot, X_explain, feature_names=handler.feature_cols)
+
+        """
 
 handler = DataHandling()
 handler.load_data()
