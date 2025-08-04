@@ -27,19 +27,30 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 """
 NOTE
 
-Tune hyper parameters
+1. Tune hyper parameters
 
-and SMOTE to balance the data a little more 
+2. Add params to SMOTE if needed  
 
-Clean the model: unneccesary variables such as X_resampled ...
+3. Clean up code
+
+4. Should probably use Macro metrics to combat class imbalances 
+
+5. Make notes for functions to be more readable.
+"""
+
+"""
+The DataHandling Class handles and transforms the MLP performance data into training data for this surrogate model. 
+
+The instantiated variables for training and validation are transformed through the class functions using LabelEncoder and StandardScaler.
+Data Splits are handled in validation_split() 
 """
 
 class DataHandling:
-    def __init__(self, data=r"data/binary_features_log.csv"):
+    def __init__(self):
         self.scaler = StandardScaler()
         self.encoder = LabelEncoder()
         self.smote = SMOTEENN(random_state=SEED)
-        self.data = data
+        self.data = r"data/binary_features_log.csv"
 
         self.reports = []
         self.conf_matrices = []
@@ -107,6 +118,9 @@ class DataHandling:
         self.num_classes = len(self.encoder.classes_)
         self.X_train, self.y_train = self.smote.fit_resample(self.X_train, self.y_train)
 
+    """
+    
+    """
     def put_to_categorical(self):
         self.y_train = to_categorical(self.y_train, num_classes=self.num_classes)
         self.y_test = to_categorical(self.y_test, num_classes=self.num_classes)
@@ -127,6 +141,14 @@ class LungCancerMLP:
         self.num_classes = num_classes 
         self.model = self._buildmodel()
 
+
+    """
+    Model Layers
+
+    Kept low density to avoid overcomplexity
+
+    Sigmoid activation function for binary classification
+    """
     def _buildmodel(self):
         model = Sequential([
             Input(shape=(self.input_dim,)),    
@@ -151,18 +173,28 @@ class LungCancerMLP:
         
         return model
 
+    """
+    Model training parameters:
+        EarlyStopping: 
+            - Stops training early to prevent overfitting
+            - restore_best_weights goes back to the model's best weights
+
+        LearningRate Schedule: 
+            - Applies decay to the learning rate over epochs
+            - Combats overfitting
+    """
     def train(self, X_train, y_train, X_val, y_val, epochs=50, batch_size=16):
         early_stopping = EarlyStopping(
             monitor='val_loss', 
             patience=5, 
-            restore_best_weights = True
+            restore_best_weights=True
             )
         
         lr_schedule = ReduceLROnPlateau(
             monitor='val_loss', 
             factor=0.1, 
             patience=3, 
-            verbose = 1 
+            verbose=1 
             )
 
         history = self.model.fit(
@@ -176,7 +208,12 @@ class LungCancerMLP:
 
         return history 
         
+    """
+    Metrics: 
+    
+    """    
     def evaluate(self, X_test, y_test, encoder):
+        y_test = np.argmax(y_test, axis=1)
         preds = np.argmax(self.model.predict(X_test), axis=1)
 
         report = classification_report(
@@ -195,7 +232,7 @@ class LungCancerMLP:
 
         return report, c_matrix, auc 
     
-    def predict(self, X)
+    def predict(self, X):
         y_pred_prob = self.model.predict(X, verbose=0)
         y_pred = np.argmax(y_pred_prob, axis=1)
 
