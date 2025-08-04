@@ -493,8 +493,9 @@ def pipeline(handler):
         print("Node Size", model.tree_.node_count)
         print("Max Depth", model.tree_.max_depth)
         plot_tree(model, feature_names=handler.feature_cols, class_names=[str(cls) for cls in handler.encoder.classes_], filled=True)
-        print(export_graphviz(model, feature_names=handler.feature_cols))
 
+        """ Uncomment if graphviz code is required to visualize the tree """
+        #print(export_graphviz(model, feature_names=handler.feature_cols))
 
         """
         SHAP (SHapley Additive exPlanations) Analysis for Surrogate Model
