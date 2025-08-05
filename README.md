@@ -25,8 +25,8 @@ Lung cancer can cause subtle changes in voice patterns due to effects on the res
 ### The Challenge
 Traditional deep learning models for medical diagnosis are "black boxes" - highly accurate but difficult for clinicians to understand and trust.
 
-### Our Solution
-We implement a **surrogate model framework** where:
+### Solution
+I implemented a **surrogate model framework** where:
 
 1. **MLP Model** (`class_based_models/lung_cancer_mlp.py`): Trained on voice biomarkers for optimal accuracy
 2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate MLP predictions using interpretable rules
