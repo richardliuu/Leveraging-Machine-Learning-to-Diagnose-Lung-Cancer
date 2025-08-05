@@ -50,9 +50,36 @@ We implement a **surrogate model framework** where:
 - **Validation**: Fidelity assessment ensures surrogate accuracy
 
 #### 3. Convolutional Neural Network (CNN)
-- **Purpose**: Alternative approach using MFCC spectrograms
+- **Purpose**: Performance comparison baseline for architectural decision-making
 - **Input**: Mel-frequency cepstral coefficients from voice recordings
-- **Architecture**: Convolutional layers for spatial pattern recognition
+- **Architecture**: Convolutional layers for spatial pattern recognition in spectral features
+- **Role**: Evaluated against MLP to determine optimal architecture for the project
+
+### 🏗️ Architectural Decision: Why MLP Over CNN?
+
+After comprehensive evaluation of both architectures, the **Multi-Layer Perceptron (MLP) was selected as the primary model** for this lung cancer classification task. This decision was based on several key factors:
+
+#### Performance Comparison Results
+- **MLP Advantages**:
+  - Superior classification accuracy on tabular voice biomarker features
+  - More stable training convergence with fewer hyperparameter sensitivities
+  - Better handling of the heterogeneous feature set (spectral, prosodic, and temporal features)
+  - Lower computational overhead for equivalent performance levels
+
+#### Technical Rationale
+- **Feature Nature**: Voice biomarkers are primarily tabular numerical features rather than spatial/sequential patterns
+- **Data Efficiency**: MLPs require fewer parameters to achieve comparable performance on this feature set
+- **Interpretability**: SHAP analysis works more effectively with MLP architectures for clinical interpretation
+
+#### CNN Limitations for This Task
+- **Spatial Assumptions**: CNNs excel at spatial pattern recognition, but voice biomarkers don't exhibit strong spatial relationships
+- **Overparameterization**: CNN's convolutional filters may be unnecessarily complex for tabular feature data
+
+#### Clinical Deployment Considerations
+- **Efficiency**: MLPs enable faster inference times for real-time screening applications
+- **Interpretability**: Simpler architecture facilitates better clinical understanding and trust
+
+The CNN implementation remains valuable as a **performance baseline** and demonstrates the systematic approach used for architectural selection in this medical AI system.
 
 ### Data Processing Pipeline
 
@@ -66,7 +93,7 @@ Voice Recordings → Feature Extraction → Model Training → Surrogate Analysi
 science2/
 ├── class_based_models/          # Primary models
 │   ├── lung_cancer_mlp.py       # Main MLP with SHAP analysis
-│   └── lung_cancer_cnn.py       # CNN implementation
+│   └── lung_cancer_cnn.py       # CNN baseline for architectural comparison
 ├── models/                      # Surrogate and experimental models
 │   ├── decisiontree.py          # Decision tree surrogate model
 │   ├── mlp.py                   # Alternative MLP implementation
@@ -112,7 +139,7 @@ science2/
    python models/decisiontree.py
    ```
    
-   **CNN Model:**
+   **CNN Baseline (for architectural comparison):**
    ```bash
    python class_based_models/lung_cancer_cnn.py
    ```
@@ -174,12 +201,18 @@ This work is intended for **research and prototyping purposes only**. It is not 
 2. **Surrogate Fidelity**: Interpretable model may not capture all MLP complexity  
 3. **Generalizability**: Performance may vary across different populations and recording conditions
 4. **Feature Engineering**: Voice biomarker extraction may miss relevant patterns
+5. **Bias**: The dataset provides bias to the model, as only 2 classes need to be identified. In deployment, that may not be the case. 
 
 ### Clinical Considerations
 - Voice changes can result from many conditions beyond lung cancer
 - Model predictions should supplement, not replace, clinical judgment
 - Requires validation on larger, more diverse patient populations
 - Need for longitudinal studies to assess temporal stability
+
+### Future Work
+- Expanding dataset size to provide model with a larger demographic 
+- Improve model architecture to improve model accuracy
+- Implementing more explainability tools to enhance human interpretability of the model
 
 ## 📊 Data Sources and Ethics
 
