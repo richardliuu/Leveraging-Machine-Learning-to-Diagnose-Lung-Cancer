@@ -64,11 +64,11 @@ import pandas as pd
 import numpy as np 
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeClassifier, plot_tree, export_graphviz
-from sklearn.model_selection import train_test_split, GroupKFold, GridSearchCV
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, f1_score
+from sklearn.model_selection import train_test_split, GroupKFold
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, log_loss
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
-#from class_based_models.lung_cancer_mlp import LungCancerMLP
+import class_based_models.lung_cancer_mlp 
 
 """
 Reproducibility Configuration
@@ -290,69 +290,6 @@ class DataHandling:
             random_state=SEED
         ).fit_resample(self.X_train, self.y_train)
 
-class FidelityCheck:
-    """
-    Assess the fidelity between surrogate decision tree and original MLP model.
-    
-    This class evaluates how well the surrogate decision tree replicates the
-    predictions of the original MLP model. High fidelity indicates that the
-    surrogate successfully captures the MLP's decision-making patterns, making
-    it a reliable interpretable proxy for the black-box neural network.
-    
-    Fidelity Assessment:
-    Fidelity is measured as the accuracy of the surrogate model in reproducing
-    MLP predictions on the same validation data. A fidelity score above 70%
-    is generally considered acceptable for surrogate model reliability.
-    
-    Alternative Metrics:
-    While accuracy is the primary metric, R² correlation could also be used
-    to assess the linear relationship between MLP and surrogate predictions.
-    
-    Clinical Relevance:
-    High fidelity ensures that insights gained from the interpretable decision
-    tree accurately reflect the behavior of the more accurate MLP model, making
-    clinical interpretations trustworthy.
-    
-    Attributes:
-        fidelity (float): Accuracy score representing surrogate-MLP agreement
-    """
-    def __init__(self):
-        self.fidelity = None
-
-    def comparison(self):
-        """
-        Compare surrogate decision tree predictions with MLP predictions.
-        
-        Calculates the fidelity score by measuring agreement between the
-        surrogate model and original MLP on the same validation dataset.
-        
-        Process:
-        1. Generate MLP predictions on validation data
-        2. Generate surrogate predictions on same validation data  
-        3. Calculate accuracy score between the two prediction sets
-        4. Report fidelity as percentage agreement
-        
-        Note:
-        This method requires access to both trained MLP and surrogate models,
-        as well as the validation dataset handler.
-        
-        Side Effects:
-        - Sets self.fidelity with calculated accuracy score
-        - Prints fidelity percentage to console
-        """
-        # Generate MLP predictions (commented out due to import issues)
-        # mlp_accuracy = LungCancerMLP().predict(handler.X_val)
-        # mlp_accuracy = np.argmax(mlp_accuracy, axis=1)
-
-        # Generate surrogate predictions
-        # surrogate_preds = self.model.predict(handler.X_val)
-
-        # Calculate fidelity score
-        # self.fidelity = accuracy_score(mlp_accuracy, surrogate_preds)
-        # print(f"Fidelity to MLP: {self.fidelity:.2%}")
-        
-        pass  # Implementation pending MLP integration
-
 def pipeline(handler):
     """
     Execute the complete surrogate model training and evaluation pipeline.
@@ -549,6 +486,95 @@ def pipeline(handler):
         # Focuses on features that increase probability of higher cancer stage
         shap.summary_plot(shap_values[..., 1], X_val_df)
 
+    return model
+
+class FidelityCheck:
+    """
+    Assess the fidelity between surrogate decision tree and original MLP model.
+    
+    This class evaluates how well the surrogate decision tree replicates the
+    predictions of the original MLP model. High fidelity indicates that the
+    surrogate successfully captures the MLP's decision-making patterns, making
+    it a reliable interpretable proxy for the black-box neural network.
+    
+    Fidelity Assessment:
+    Fidelity is measured as the accuracy of the surrogate model in reproducing
+    MLP predictions on the same validation data. A fidelity score above 70%
+    is generally considered acceptable for surrogate model reliability.
+    
+    Alternative Metrics:
+    While accuracy is the primary metric, R² correlation could also be used
+    to assess the linear relationship between MLP and surrogate predictions.
+    
+    Clinical Relevance:
+    High fidelity ensures that insights gained from the interpretable decision
+    tree accurately reflect the behavior of the more accurate MLP model, making
+    clinical interpretations trustworthy.
+    
+    Attributes:
+        fidelity (float): Accuracy score representing surrogate-MLP agreement
+    """
+    def __init__(self, surrogate_model, data_handler):
+        self.fidelity = None
+        self.surrogate = surrogate_model
+        self.handler = data_handler
+
+    def comparison(self):
+        """
+        Compare surrogate decision tree predictions with MLP predictions.
+        
+        Calculates the fidelity score by measuring agreement between the
+        surrogate model and original MLP on the same validation dataset.
+        
+        Process:
+        1. Generate MLP predictions on validation data
+        2. Generate surrogate predictions on same validation data  
+        3. Calculate accuracy score between the two prediction sets
+        4. Report fidelity as percentage agreement
+        
+        Note:
+        This method requires access to both trained MLP and surrogate models,
+        as well as the validation dataset handler.
+        
+        Side Effects:
+        - Sets self.fidelity with calculated accuracy score
+        - Prints fidelity percentage to console
+        """
+        try:
+            # Load and initialize MLP model
+            mlp_model = class_based_models.lung_cancer_mlp.LungCancerMLP(
+                num_classes=self.handler.num_classes,
+                input_dim=self.handler.X_val.shape[1]
+            )
+            
+            # Generate MLP predictions on validation data
+            mlp_preds = mlp_model.predict(self.handler.X_val)
+            print("MLP predictions shape:", mlp_preds.shape)
+            
+            # Generate surrogate predictions on validation data
+            surrogate_preds = self.surrogate.predict(self.handler.X_val)
+            print("Surrogate predictions shape:", surrogate_preds.shape)
+            
+            # Calculate fidelity score
+            self.fidelity = accuracy_score(mlp_preds, surrogate_preds)
+            print(f"Fidelity to MLP: {self.fidelity:.2%}")
+            
+            # Calculate log loss for additional metric
+            try:
+                self.fidelity_log_loss = log_loss(mlp_preds, surrogate_preds)
+                print(f"Fidelity Log Loss: {self.fidelity_log_loss:.4f}")
+            except ValueError as e:
+                print(f"Log loss calculation failed: {e}")
+                
+        except Exception as e:
+            print(f"Fidelity check failed: {e}")
+            print("Unable to compare with MLP model - using surrogate validation accuracy instead")
+            self.fidelity = self.surrogate.score(self.handler.X_val, self.handler.y_val)
+            print(f"Surrogate validation accuracy: {self.fidelity:.2%}")
+
 handler = DataHandling()
 handler.load_data()
-pipeline(handler)
+surrogate_model = pipeline(handler)
+check = FidelityCheck(surrogate_model, handler)
+check.comparison()
+

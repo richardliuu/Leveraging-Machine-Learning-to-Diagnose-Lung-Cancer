@@ -34,6 +34,12 @@ lung cancer data with features, patient IDs, and cancer stage labels.
 Author: Richard Liu
 """
 
+"""
+NOTE to self
+
+Make SHAP analysis another class to make the fidelity check easier to run
+"""
+
 import shap
 import pandas as pd
 import numpy as np
@@ -630,6 +636,9 @@ def pipeline(handler):
         - Summary plot provides global view of feature importance patterns
         """
         
+        """
+        # Commented to prevent SHAP from running when unneccessary 
+
         # Convert to DataFrame
         X_val_df = pd.DataFrame(handler.X_val, columns=handler.feature_cols)
         X_explain = X_val_df.iloc[:]
@@ -653,7 +662,8 @@ def pipeline(handler):
             f"SHAP values shape {shap_vals_to_plot.shape} != input shape {X_explain_np.shape}"
 
         shap.summary_plot(shap_vals_to_plot, X_explain, feature_names=handler.feature_cols)
-
+        """
+        
 handler = DataHandling()
 handler.load_data()
 pipeline(handler)
