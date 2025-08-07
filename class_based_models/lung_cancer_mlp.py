@@ -462,9 +462,9 @@ class LungCancerMLP:
     
     def predict(self, X):
         y_pred_prob = self.model.predict(X, verbose=0)
-        y_pred = np.argmax(y_pred_prob, axis=1)
+        #y_pred = np.argmax(y_pred_prob, axis=1)
 
-        return y_pred 
+        return y_pred_prob 
 
 def pipeline(handler):
     """
@@ -541,9 +541,9 @@ def pipeline(handler):
             handler.encoder
         )
 
-        y_pred = model.predict(handler.X_test)
+        y_pred_prob = model.predict(handler.X_test)
 
-        handler.predictions.append(y_pred)
+        #handler.predictions.append(y_pred)
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
