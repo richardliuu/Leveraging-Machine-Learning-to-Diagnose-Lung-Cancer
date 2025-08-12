@@ -33,7 +33,6 @@ from sklearn.model_selection import train_test_split, GroupKFold
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, log_loss, mean_squared_error, mean_absolute_error, r2_score
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from imblearn.combine import SMOTEENN
-import class_based_models.lung_cancer_mlp 
 
 """
 Reproducibility Configuration
@@ -62,7 +61,7 @@ class DataHandling:
         self.inconsistent_patients = None
 
     def load_data(self):
-        self.data = pd.read_csv("data/surrogate_data.csv")
+        self.data = pd.read_csv("data\less_dense\ld_surrogate_data.csv")
         
         # Extract features (same as original MLP input)
         self.X = self.data.drop(columns=["segment", "true_label", "patient_id", "predicted_label", "mlp_c1_prob"])
@@ -222,15 +221,8 @@ class FidelityCheck:
 
     def comparison(self):
         try:
-            # Load and initialize MLP model
-            mlp_model = class_based_models.lung_cancer_mlp.LungCancerMLP(
-                num_classes=self.preprocessor.num_classes,
-                input_dim=self.preprocessor.X_val.shape[1]
-            )
-            
             # Generate MLP predictions on validation data
-            mlp_preds = mlp_model.predict(self.preprocessor.X_val)
-            print("MLP predictions shape:", mlp_preds.shape)
+            mlp_class1_probs = handler.data.loc[self.preprocessor.X_val.index, 'mlp_c1_prob'].values
             
             # Generate surrogate predictions on validation data with probability bounding
             surrogate_preds_raw = self.surrogate.predict(self.preprocessor.X_val)
@@ -245,14 +237,6 @@ class FidelityCheck:
                 print("All validation predictions within bounds!")
             
             print("Surrogate predictions shape:", surrogate_preds.shape)
-            
-            # Extract class 1 probabilities from MLP predictions if multi-class output
-            if len(mlp_preds.shape) > 1 and mlp_preds.shape[1] > 1:
-                mlp_class1_probs = mlp_preds[:, 1]  # Extract class 1 probabilities
-            else:
-                mlp_class1_probs = mlp_preds.flatten()
-                
-            print("MLP class 1 probabilities shape:", mlp_class1_probs.shape)
             
             # Calculate regression metrics for probability comparison
             self.fidelity_mse = mean_squared_error(mlp_class1_probs, surrogate_preds)
