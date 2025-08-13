@@ -178,25 +178,23 @@ def run_proper_cross_validation(df):
 
         # Build model (fresh for each fold)
         model = Sequential([
-            Input(shape=(X_train_final.shape[1],)),
-            Dense(512, activation='relu'),
-            BatchNormalization(),
-            Dropout(0.4),
-            
-            Dense(256, activation='relu'),
-            BatchNormalization(),
-            Dropout(0.3),
-            
+            Input(shape=(X_train_final.shape[1],)),   
             Dense(128, activation='relu'),
             BatchNormalization(),
-            Dropout(0.3),
+            Dropout(0.4),
             
             Dense(64, activation='relu'),
             BatchNormalization(),
             Dropout(0.3),
             
-            Dense(num_classes, activation='softmax')
+            Dense(32, activation='relu'),
+            BatchNormalization(),
+            Dropout(0.3),
+            
+            Dense(num_classes, activation='sigmoid')
         ])
+
+        model.summary()
         
         model.compile(optimizer='adam',
                       loss='categorical_crossentropy',
@@ -220,7 +218,7 @@ def run_proper_cross_validation(df):
             X_train_final, y_train_final,
             validation_data=(X_val_final, y_val_final),
             epochs=50,
-            batch_size=16,
+            batch_size=32,
             callbacks=[early_stopping, lr_schedule],
             verbose=1
         )
@@ -250,6 +248,12 @@ def run_proper_cross_validation(df):
         except Exception as e:
             print("ROC AUC could not be computed:", str(e))
             auc = np.nan
+
+        mis_idx = np.where((y_true == 0) & (y_pred == 1))[0]
+        misclassified_samples = X.iloc[mis_idx]
+
+        print(misclassified_samples)
+
 
         all_roc_aucs.append(auc)
         all_reports.append(report)
@@ -324,38 +328,13 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
     avg_conf_matrix = np.mean(all_conf_matrices, axis=0)
     print(f"\nAverage Confusion Matrix:")
     print(np.round(avg_conf_matrix).astype(int))
-    
-    # ROC AUC Line Plot
-    if all_roc_aucs:
-        auc_scores = [score for score in all_roc_aucs if not np.isnan(score)]
-        if auc_scores:
-            mean_auc = np.mean(auc_scores)
-            std_auc = np.std(auc_scores)
 
-            print(f"\nMean ROC AUC (macro): {mean_auc:.4f} ± {std_auc:.4f}")
-
-            plt.figure(figsize=(8, 5))
-            plt.plot(range(1, len(auc_scores) + 1), auc_scores, marker='o', linestyle='-',
-                     color='blue', label='ROC AUC per Fold')
-            plt.axhline(mean_auc, color='red', linestyle='--', label=f'Mean AUC = {mean_auc:.4f}')
-            plt.fill_between(range(1, len(auc_scores) + 1),
-                             [mean_auc - std_auc] * len(auc_scores),
-                             [mean_auc + std_auc] * len(auc_scores),
-                             color='red', alpha=0.2, label='±1 STD')
-            plt.xticks(range(1, len(auc_scores) + 1))
-            plt.xlabel("Fold")
-            plt.ylabel("ROC AUC (macro)")
-            plt.title("ROC AUC per Fold (Macro)")
-            plt.legend()
-            plt.grid(True)
-            plt.tight_layout()
-            plt.show()
 
 # MAIN EXECUTION
 if __name__ == "__main__":
     # Load dataset
     print("Loading dataset")
-    df = pd.read_csv("data/binary_features_log.csv")
+    df = pd.read_csv("data/less_features.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
     # Step 1: Verify data integrity
@@ -378,3 +357,4 @@ if __name__ == "__main__":
         summarize_results(all_reports, all_conf_matrices, fold_details, all_histories, all_roc_aucs)    
     else:
         print(f"\nCross-validation failed due to data leakage!")
+

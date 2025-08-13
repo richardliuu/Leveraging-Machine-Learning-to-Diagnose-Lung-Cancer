@@ -107,13 +107,13 @@ class DataHandling:
         self.test_patients = None
 
     def load_data(self):
-        self.data = pd.read_csv("data/calibrated.csv")
+        self.data = pd.read_csv("data\less_dense\ld_surrogate_data.csv")
         
         # Extract features (same as original MLP input)
-        self.X = self.data.drop(columns=["segment", "true_label", "patient_id", "predicted_label", "mlp_prob"])
+        self.X = self.data.drop(columns=["segment", "true_label", "patient_id", "predicted_label", "mlp_c1_prob"])
         
         # Target is MLP predictions (not ground truth)
-        self.y = self.data['mlp_prob']
+        self.y = self.data['mlp_c1_prob']
         
         # Preserve feature names for interpretability
         self.feature_cols = self.X.columns.tolist()
