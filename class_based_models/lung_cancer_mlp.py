@@ -170,7 +170,7 @@ class DataHandling:
             >>> if is_clean:
             ...     print("Data passed all integrity checks")
         """
-        data = pd.read_csv("data/binary_features_log.csv")
+        data = pd.read_csv("data/train_data.csv")
         self.X = data.drop(columns=['segment', 'cancer_stage', 'patient_id'])
         self.y = data['cancer_stage']
 
@@ -307,15 +307,15 @@ class LungCancerMLP:
         """
         model = Sequential([
             Input(shape=(self.input_dim,)),    
-            Dense(256, activation='relu'),
-            BatchNormalization(),
-            Dropout(0.3),
-            
             Dense(128, activation='relu'),
             BatchNormalization(),
             Dropout(0.3),
             
             Dense(64, activation='relu'),
+            BatchNormalization(),
+            Dropout(0.3),
+            
+            Dense(32, activation='relu'),
             BatchNormalization(),
             Dropout(0.3),
             
