@@ -2,7 +2,8 @@ import pandas as pd
 import numpy as np
 import random
 import os
-from sklearn.model_selection import GroupKFold, train_test_split
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import GroupKFold, train_test_split, GridSearchCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from imblearn.combine import SMOTEENN
@@ -87,15 +88,16 @@ def run_rf_cross_validation(df):
 
         # Train Random Forest
         rf = RandomForestClassifier(
-            n_estimators=200,
+            n_estimators=100,
             max_depth=None,
-            min_samples_split=2,
-            min_samples_leaf=1,
+            max_features=None,
+            min_samples_split=10,
+            min_samples_leaf=2,
             random_state=SEED,
             n_jobs=-1
         )
         rf.fit(X_train_res, y_train_res)
-
+    
         y_pred = rf.predict(X_test)
         y_pred_prob = rf.predict_proba(X_test)[:, 1]
 
