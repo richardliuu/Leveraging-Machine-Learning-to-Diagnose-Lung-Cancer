@@ -20,7 +20,7 @@ random.seed(SEED)
 def verify_data_integrity(df):
     print("=== DATA INTEGRITY CHECKS ===")
     
-    feature_cols = df.drop(columns=['segment', 'cancer_stage', 'patient_id']).columns
+    feature_cols = df.drop(columns=['cancer_stage', 'patient_id', 'chunk']).columns
     duplicates = df.duplicated(subset=feature_cols)
     print(f"Duplicate feature rows: {duplicates.sum()}")
     
@@ -48,7 +48,7 @@ def verify_data_integrity(df):
 
 def run_rf_cross_validation(df):
     # Prepare features and labels
-    X = df.drop(columns=['segment', 'cancer_stage', 'patient_id'])
+    X = df.drop(columns=['chunk', 'cancer_stage', 'patient_id', 'filename', 'rolloff', 'bandwidth', "skew", "zcr", 'rms'])
     y = df['cancer_stage']
     groups = df['patient_id']
 
@@ -81,10 +81,10 @@ def run_rf_cross_validation(df):
         print(f"Test:  {len(test_patients)} patients, {len(X_test)} samples")
 
         # Apply SMOTEENN to training data only
-        print("Applying SMOTEENN to training data")
-        smote = SMOTEENN(random_state=SEED)
-        X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
-        print(f"After SMOTEENN: {Counter(y_train_res)}")
+        #print("Applying SMOTEENN to training data")
+        #smote = SMOTEENN(random_state=SEED)
+        #X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
+        #print(f"After SMOTEENN: {Counter(y_train_res)}")
 
         # Train Random Forest
         rf = RandomForestClassifier(
@@ -98,7 +98,7 @@ def run_rf_cross_validation(df):
             random_state=SEED, 
             n_jobs=-1, 
         )
-        rf.fit(X_train_res, y_train_res)
+        rf.fit(X_train, y_train)
     
         y_pred = rf.predict(X_test)
         y_pred_prob = rf.predict_proba(X_test)[:, 1]
@@ -168,7 +168,7 @@ def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_a
 # ====================== MAIN ======================
 if __name__ == "__main__":
     print("Loading dataset")
-    df = pd.read_csv("data/binary_features_log.csv")
+    df = pd.read_csv("data/jitter_shimmerlog.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
 
     print("\nStep 1: Data Integrity Check")
