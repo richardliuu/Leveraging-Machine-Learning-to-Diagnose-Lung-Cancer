@@ -51,13 +51,9 @@ def analyze_audio_features(y, sr):
 
     return {
         "rms_mean": np.mean(rms),
-        "rms_std": np.std(rms),
         "zcr_mean": np.mean(zcr),
-        "zcr_std": np.std(zcr),
         "centroid_mean": np.mean(centroid),
-        "centroid_std": np.std(centroid),
         "flatness_mean": np.mean(flatness),
-        "flatness_std": np.std(flatness),
         "hnr_estimate": hnr
     }
 
@@ -77,13 +73,11 @@ def extract_parselmouth_features(path):
 
         return {
             "pitch_mean": pitch_mean,
-            "pitch_std": pitch_std
         }
     except Exception as e:
         print(f"Error in parselmouth analysis: {e}")
         return {
             "pitch_mean": 0,
-            "pitch_std": 0
         }
 
 def extract_all_features(y, sr, path=None):
@@ -91,7 +85,6 @@ def extract_all_features(y, sr, path=None):
     mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     for i in range(13):
         features[f"mfcc{i+1}_mean"] = np.mean(mfccs[i])
-        features[f"mfcc{i+1}_std"] = np.std(mfccs[i])
     if path:
         features.update(extract_parselmouth_features(path))
     return features, mfccs
@@ -124,7 +117,7 @@ def process_and_segment_audio(input_path, output_folder, csv_path, npy_path, can
         "patient_id", "segment", "cancer_stage", "rms_mean", "rms_std", "zcr_mean", "zcr_std",
         "centroid_mean", "centroid_std", "flatness_mean", "flatness_std", "hnr_estimate",
         "pitch_mean", "pitch_std"
-    ] + [f"mfcc{i+1}_mean" for i in range(13)] + [f"mfcc{i+1}_std" for i in range(13)]
+    ] + [f"mfcc{i+1}_mean" for i in range(13)]
 
     all_mfccs = []
 

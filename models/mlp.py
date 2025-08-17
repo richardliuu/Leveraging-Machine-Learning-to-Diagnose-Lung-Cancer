@@ -30,7 +30,7 @@ def verify_data_integrity(df):
     print("=== DATA INTEGRITY CHECKS ===")
     
     # Check for duplicate samples
-    feature_cols = df.drop(columns=['segment', 'cancer_stage', 'patient_id']).columns
+    feature_cols = df.drop(columns=['cancer_stage', 'patient_id', 'chunk']).columns
     duplicates = df.duplicated(subset=feature_cols)
     print(f"Duplicate feature rows: {duplicates.sum()}")
     
@@ -95,7 +95,7 @@ def run_proper_cross_validation(df):
         print(f"Dataset size after limiting: {len(df)} samples")
     
     # Prepare features and labels
-    X = df.drop(columns=['segment', 'cancer_stage', 'patient_id'])
+    X = df.drop(columns=['chunk', 'cancer_stage', 'patient_id', 'filename', 'rolloff', 'bandwidth', "skew", "zcr", 'rms'])
     y = df['cancer_stage']
     groups = df['patient_id']  # Group by patient ID
     
@@ -190,6 +190,10 @@ def run_proper_cross_validation(df):
             Dense(32, activation='relu'),
             BatchNormalization(),
             Dropout(0.3),
+                        
+            Dense(16, activation='relu'),
+            BatchNormalization(),
+            Dropout(0.2),
             
             Dense(num_classes, activation='sigmoid')
         ])
@@ -249,10 +253,10 @@ def run_proper_cross_validation(df):
             print("ROC AUC could not be computed:", str(e))
             auc = np.nan
 
-        mis_idx = np.where((y_true == 0) & (y_pred == 1))[0]
-        misclassified_samples = X.iloc[mis_idx]
+        #mis_idx = np.where((y_true == 0) & (y_pred == 1))[0]
+        #misclassified_samples = X.iloc[mis_idx]
 
-        print(misclassified_samples)
+        #print(misclassified_samples)
 
 
         all_roc_aucs.append(auc)
@@ -334,7 +338,7 @@ def summarize_results(all_reports, all_conf_matrices, fold_details, all_historie
 if __name__ == "__main__":
     # Load dataset
     print("Loading dataset")
-    df = pd.read_csv("data/less_features.csv")
+    df = pd.read_csv("data/jitter_shimmerlog.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
     
     # Step 1: Verify data integrity
