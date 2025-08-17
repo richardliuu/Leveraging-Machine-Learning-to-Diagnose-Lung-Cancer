@@ -88,18 +88,27 @@ def run_rf_cross_validation(df):
 
         # Train Random Forest
         rf = RandomForestClassifier(
-            n_estimators=100,
-            max_depth=None,
+            criterion="log_loss",
+            n_estimators=200,
+            max_depth=5,
             max_features=None,
-            min_samples_split=10,
-            min_samples_leaf=2,
-            random_state=SEED,
-            n_jobs=-1
+            min_samples_split=12,
+            min_samples_leaf=3,
+            class_weight='balanced',
+            random_state=SEED, 
+            n_jobs=-1, 
         )
         rf.fit(X_train_res, y_train_res)
     
         y_pred = rf.predict(X_test)
         y_pred_prob = rf.predict_proba(X_test)[:, 1]
+
+        mis_idx = np.where((y_test == 0) & (y_pred == 1))[0]
+        misclassified_samples = X.iloc[mis_idx]
+
+        print(misclassified_samples)
+
+        misclassified_samples.to_csv("data/randomforest_incorrect.csv",index=False)
 
         # Metrics
         report = classification_report(y_test, y_pred, output_dict=True)
@@ -159,7 +168,7 @@ def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_a
 # ====================== MAIN ======================
 if __name__ == "__main__":
     print("Loading dataset")
-    df = pd.read_csv("data/train_data.csv")
+    df = pd.read_csv("data/binary_features_log.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
 
     print("\nStep 1: Data Integrity Check")
