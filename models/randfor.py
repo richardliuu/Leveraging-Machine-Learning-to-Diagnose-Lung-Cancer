@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import random
 import os
+from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import GroupKFold, train_test_split, GridSearchCV
 from sklearn.preprocessing import LabelEncoder
@@ -53,6 +54,8 @@ def run_rf_cross_validation(df):
     groups = df['patient_id']
 
     print(f"Total samples: {len(df)}")
+    
+    # Incorrect, inflated by the u1, u2 file format
     print(f"Total patients: {df['patient_id'].nunique()}")
     print(f"Features: {X.shape[1]}")
 
@@ -80,12 +83,6 @@ def run_rf_cross_validation(df):
         print(f"Train: {len(train_patients)} patients, {len(X_train)} samples")
         print(f"Test:  {len(test_patients)} patients, {len(X_test)} samples")
 
-        # Apply SMOTEENN to training data only
-        #print("Applying SMOTEENN to training data")
-        #smote = SMOTEENN(random_state=SEED)
-        #X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
-        #print(f"After SMOTEENN: {Counter(y_train_res)}")
-
         # Train Random Forest
         rf = RandomForestClassifier(
             criterion="log_loss",
@@ -103,12 +100,29 @@ def run_rf_cross_validation(df):
         y_pred = rf.predict(X_test)
         y_pred_prob = rf.predict_proba(X_test)[:, 1]
 
+        np.set_printoptions(threshold=np.inf)
+
+        probs = rf.predict_proba(X_test)
+        print(y_pred_prob)
+
+        results_df = X_test.copy()
+        results_df['true_label'] = y_test.values
+        results_df['predicted_label'] = y_pred
+        results_df['c1_prob'] = y_pred_prob
+
+        training_data = pd.read_csv("data/jitter_shimmerlog.csv")
+        results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
+        results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
+        results_df.to_csv('data/rf_surrogate_data.csv', index=False)
+
+        """
         mis_idx = np.where((y_test == 0) & (y_pred == 1))[0]
         misclassified_samples = X.iloc[mis_idx]
 
         print(misclassified_samples)
 
         misclassified_samples.to_csv("data/randomforest_incorrect.csv",index=False)
+        """
 
         # Metrics
         report = classification_report(y_test, y_pred, output_dict=True)
@@ -165,7 +179,6 @@ def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_a
     print(f"\nAverage Confusion Matrix:")
     print(np.round(avg_conf_matrix).astype(int))
 
-# ====================== MAIN ======================
 if __name__ == "__main__":
     print("Loading dataset")
     df = pd.read_csv("data/jitter_shimmerlog.csv")
