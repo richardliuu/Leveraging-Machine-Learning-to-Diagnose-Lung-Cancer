@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 import random
 import os
+import joblib
+import shap
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, export_graphviz
 from sklearn.model_selection import GroupKFold, train_test_split, GridSearchCV
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
@@ -52,6 +54,8 @@ def run_rf_cross_validation(df):
     X = df.drop(columns=['chunk', 'cancer_stage', 'patient_id', 'filename', 'rolloff', 'bandwidth', "skew", "zcr", 'rms'])
     y = df['cancer_stage']
     groups = df['patient_id']
+
+    feature_cols = X.columns.tolist()
 
     print(f"Total samples: {len(df)}")
     
@@ -150,7 +154,34 @@ def run_rf_cross_validation(df):
             'accuracy': report['accuracy']
         })
 
-    return all_reports, all_conf_matrices, fold_details, all_roc_aucs
+        individual_tree = rf.estimators_[0]
+
+        print(export_graphviz(individual_tree, feature_names=feature_cols))
+
+        X_test_df = pd.DataFrame(X_test, columns=feature_cols)
+        X_explain = X_test_df.iloc[:]
+        X_explain_np = X_explain.to_numpy()
+
+        # Background for SHAP
+        background = X_test_df.sample(n=20, random_state=42).to_numpy()
+        explainer = shap.TreeExplainer(rf, background)
+        shap_values = explainer.shap_values(X_explain_np)
+
+        # If output is a 3D array: (samples, features, classes)
+        if isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+            print("SHAP values shape (3D):", shap_values.shape)
+            class_index = 1  
+            shap_vals_to_plot = shap_values[:, :, class_index]
+        else:
+            shap_vals_to_plot = shap_values[1] 
+
+        # Confirm shape match
+        assert shap_vals_to_plot.shape == X_explain_np.shape, \
+            f"SHAP values shape {shap_vals_to_plot.shape} != input shape {X_explain_np.shape}"
+
+        shap.summary_plot(shap_vals_to_plot, X_explain, feature_names=feature_cols)
+
+    return all_reports, all_conf_matrices, fold_details, all_roc_aucs, rf
 
 # ====================== SUMMARY ======================
 def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_aucs):
@@ -177,6 +208,7 @@ def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_a
 
     avg_conf_matrix = np.mean(all_conf_matrices, axis=0)
     print(f"\nAverage Confusion Matrix:")
+
     print(np.round(avg_conf_matrix).astype(int))
 
 if __name__ == "__main__":
@@ -192,8 +224,11 @@ if __name__ == "__main__":
     print("\nStep 2: Run Random Forest Cross-Validation")
     results = run_rf_cross_validation(df)
     if results[0] is not None:
-        all_reports, all_conf_matrices, fold_details, all_roc_aucs = results
+        all_reports, all_conf_matrices, fold_details, all_roc_aucs, rf = results
         print("\nStep 3: Summarize Results")
         summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_aucs)
     else:
         print("\nCross-validation failed due to patient leakage!")
+
+    #joblib.dump(rf, "models/rf_model.pkl")
+    #print("Random Forest saved as rf_model.pkl")
