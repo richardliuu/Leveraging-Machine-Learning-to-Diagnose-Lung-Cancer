@@ -2,12 +2,12 @@
 
 ## 🎯 Project Overview
 
-This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling**. The system combines the high accuracy of deep neural networks with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
+This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
 
-### Key Innovation: Dual-Model Interpretability Framework
+### Key Innovation: Random Forest with Decision Tree Surrogate Framework
 
-- **Primary Model**: Multi-Layer Perceptron (MLP) for high-accuracy lung cancer stage classification
-- **Surrogate Model**: Decision Tree trained to mimic MLP predictions while providing interpretable decision rules
+- **Primary Model**: Random Forest Classifier for high-accuracy lung cancer binary classification
+- **Surrogate Model**: Decision Tree trained to mimic Random Forest predictions while providing interpretable decision rules
 - **SHAP Analysis**: Feature importance comparison between both models for validation and clinical insight
 
 ## 🏥 Clinical Significance
@@ -28,8 +28,8 @@ Traditional deep learning models for medical diagnosis are "black boxes" - highl
 ### Solution
 I implemented a **surrogate model framework** where:
 
-1. **MLP Model** (`class_based_models/lung_cancer_mlp.py`): Trained on voice biomarkers for optimal accuracy
-2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate MLP predictions using interpretable rules
+1. **Random Forest Model** (`models/randfor.py`): Trained on voice biomarkers for optimal accuracy using ensemble learning
+2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate Random Forest predictions using interpretable rules
 3. **Comparative SHAP Analysis**: Feature importance validation across both models
 4. **Clinical Translation**: Provides explainable decision pathways for medical professionals
 
@@ -37,49 +37,53 @@ I implemented a **surrogate model framework** where:
 
 ### Models Implemented
 
-#### 1. Multi-Layer Perceptron (MLP)
-- **Purpose**: Primary classification model for lung cancer staging
-- **Architecture**: Deep neural network with batch normalization and dropout
-- **Features**: Rigorous cross-validation, SMOTEENN resampling, early stopping
-- **Interpretability**: SHAP analysis for feature importance
+#### 1. Random Forest Classifier
+- **Purpose**: Primary classification model for lung cancer binary classification
+- **Architecture**: Ensemble of 200 decision trees with balanced class weights
+- **Features**: Rigorous cross-validation, patient-grouped splits, hyperparameter optimization
+- **Parameters**: Max depth 5, min samples split 12, log loss criterion
+- **Interpretability**: SHAP analysis for feature importance across ensemble
 
 #### 2. Decision Tree Surrogate  
-- **Purpose**: Interpretable proxy model mimicking MLP behavior
-- **Training**: Learns to predict MLP outputs rather than ground truth labels
+- **Purpose**: Interpretable proxy model mimicking Random Forest behavior
+- **Training**: Learns to predict Random Forest probability outputs rather than ground truth labels
 - **Benefits**: Provides transparent decision rules and feature thresholds
-- **Validation**: Fidelity assessment ensures surrogate accuracy
+- **Validation**: Fidelity assessment ensures surrogate accuracy with R² scores
+- **Architecture**: Max depth 10, max leaf nodes 15, regression-based approach
 
-#### 3. Convolutional Neural Network (CNN)
-- **Purpose**: Performance comparison baseline for architectural decision-making
-- **Input**: Mel-frequency cepstral coefficients from voice recordings
-- **Architecture**: Convolutional layers for spatial pattern recognition in spectral features
-- **Role**: Evaluated against MLP to determine optimal architecture for the project
+#### 3. Multi-Layer Perceptron (MLP) - Legacy Implementation
+- **Purpose**: Alternative deep learning approach for comparison
+- **Architecture**: Deep neural network with batch normalization and dropout
+- **Role**: Baseline comparison to demonstrate Random Forest superiority for this task
 
-### 🏗️ Architectural Decision: Why MLP Over CNN?
+### 🏗️ Architectural Decision: Why Random Forest?
 
-After comprehensive evaluation of both architectures, the **Multi-Layer Perceptron (MLP) was selected as the primary model** for this lung cancer classification task. This decision was based on several key factors:
+After comprehensive evaluation of multiple architectures, the **Random Forest Classifier was selected as the primary model** for this lung cancer classification task. This decision was based on several key factors:
 
-#### Performance Comparison Results
-- **MLP Advantages**:
+#### Performance Advantages
+- **Random Forest Benefits**:
   - Superior classification accuracy on tabular voice biomarker features
-  - More stable training convergence with fewer hyperparameter sensitivities
-  - Better handling of the heterogeneous feature set (spectral, prosodic, and temporal features)
-  - Lower computational overhead for equivalent performance levels
+  - Robust performance with built-in feature selection and ensemble averaging
+  - Excellent handling of class imbalance through balanced class weights
+  - Natural resistance to overfitting through bootstrap aggregating
 
 #### Technical Rationale
-- **Feature Nature**: Voice biomarkers are primarily tabular numerical features rather than spatial/sequential patterns
-- **Data Efficiency**: MLPs require fewer parameters to achieve comparable performance on this feature set
-- **Interpretability**: SHAP analysis works more effectively with MLP architectures for clinical interpretation
+- **Feature Nature**: Voice biomarkers are tabular numerical features ideal for tree-based methods
+- **Interpretability**: Tree-based models provide natural feature importance and decision paths
+- **Stability**: Ensemble approach reduces variance and improves generalization
+- **Efficiency**: Fast training and inference suitable for clinical deployment
 
-#### CNN Limitations for This Task
-- **Spatial Assumptions**: CNNs excel at spatial pattern recognition, but voice biomarkers don't exhibit strong spatial relationships
-- **Overparameterization**: CNN's convolutional filters may be unnecessarily complex for tabular feature data
+#### Comparison with Other Approaches
+- **vs. MLP**: Random Forest shows better performance on this tabular dataset without requiring extensive hyperparameter tuning
+- **vs. Single Decision Tree**: Ensemble approach provides better accuracy while maintaining interpretability through surrogate modeling
+- **vs. Deep Learning**: Avoids overfitting issues common with neural networks on smaller medical datasets
 
 #### Clinical Deployment Considerations
-- **Efficiency**: MLPs enable faster inference times for real-time screening applications
-- **Interpretability**: Simpler architecture facilitates better clinical understanding and trust
+- **Reliability**: Ensemble voting provides confidence estimates for predictions
+- **Interpretability**: Combined with surrogate decision trees for full transparency
+- **Robustness**: Less sensitive to outliers and missing values common in medical data
 
-The CNN implementation remains valuable as a **performance baseline** and demonstrates the systematic approach used for architectural selection in this medical AI system.
+The surrogate decision tree framework enables clinicians to understand Random Forest decisions through simple, interpretable rules while maintaining the ensemble's superior accuracy.
 
 ### Data Processing Pipeline
 
@@ -91,21 +95,22 @@ Voice Recordings → Feature Extraction → Model Training → Surrogate Analysi
 
 ```
 science2/
-├── class_based_models/          # Primary models
-│   ├── lung_cancer_mlp.py       # Main MLP with SHAP analysis
-│   └── lung_cancer_cnn.py       # CNN baseline for architectural comparison
-├── models/                      # Surrogate and experimental models
-│   ├── decisiontree.py          # Decision tree surrogate model
-│   ├── mlp.py                   # Alternative MLP implementation
-│   └── cnn.py                   # Alternative CNN implementation
-├── data/                        # Training datasets   
-|   ├── wavfiles/                # Original audio files with lung cancer patients and healthy controls 
-│   ├── binary_features_log.csv  # Processed voice features
-│   ├── surrogate_data.csv       # MLP predictions for surrogate training
-│   └── binary_mfccs.npy         # MFCC features for CNN
-├── data_processing/             # Analysis and visualization tools
-├── results/                     # Model outputs and visualizations
-└── requirements.txt             # Project dependencies
+├── models/                      # Primary and surrogate models
+│   ├── randfor.py              # Main Random Forest classifier with SHAP analysis
+│   ├── decisiontree.py         # Decision tree surrogate model for Random Forest
+│   ├── rf_model.pkl            # Saved Random Forest model
+│   └── mlp.py                  # Alternative MLP implementation for comparison
+├── class_based_models/         # Legacy neural network implementations
+│   ├── lung_cancer_mlp.py      # MLP baseline for comparison
+│   └── lung_cancer_cnn.py      # CNN baseline for comparison
+├── data/                       # Training datasets   
+|   ├── wavfiles/               # Original audio files with lung cancer patients and healthy controls 
+│   ├── jitter_shimmerlog.csv   # Processed voice features for Random Forest
+│   ├── rf_surrogate_data.csv   # Random Forest predictions for surrogate training
+│   └── binary_mfccs.npy        # MFCC features for CNN comparison
+├── data_processing/            # Analysis and visualization tools
+├── results/                    # Model outputs and visualizations
+└── requirements.txt            # Project dependencies
 ```
 
 ## 🚀 Getting Started
@@ -129,9 +134,9 @@ science2/
 
 3. **Run the models**
    
-   **Primary MLP Model:**
+   **Primary Random Forest Model:**
    ```bash
-   python class_based_models/lung_cancer_mlp.py
+   python models/randfor.py
    ```
    
    **Surrogate Decision Tree:**
@@ -139,9 +144,9 @@ science2/
    python models/decisiontree.py
    ```
    
-   **CNN Baseline (for architectural comparison):**
+   **MLP Baseline (for comparison):**
    ```bash
-   python class_based_models/lung_cancer_cnn.py
+   python class_based_models/lung_cancer_mlp.py
    ```
 
 ## 📈 Key Features
@@ -152,14 +157,15 @@ science2/
 - **Stratified Sampling**: Maintains class distribution across all splits
 
 ### Class Imbalance Handling
-- **SMOTEENN Resampling**: Combines oversampling and undersampling for balanced training
-- **Weighted Loss Functions**: Accounts for class imbalance in neural network training
+- **Balanced Class Weights**: Random Forest automatically handles class imbalance through balanced weighting
+- **Stratified Cross-Validation**: Maintains class distribution across all splits
 - **Balanced Metrics**: Focus on macro-averaged metrics for fair evaluation
 
 ### Interpretability Tools
-- **SHAP Analysis**: Feature importance for both MLP and surrogate models
-- **Decision Tree Visualization**: Transparent decision rules with feature thresholds
-- **Comparative Analysis**: Validates surrogate fidelity to original MLP
+- **SHAP Analysis**: Feature importance for both Random Forest and surrogate models
+- **Decision Tree Visualization**: Transparent decision rules with feature thresholds from surrogate
+- **Fidelity Assessment**: Validates surrogate accuracy against Random Forest using R² scores
+- **Comparative Analysis**: Validates surrogate fidelity to original Random Forest predictions
 
 ## 📊 Model Performance
 
@@ -179,9 +185,9 @@ science2/
 
 ### Understanding Model Decisions
 
-1. **SHAP Feature Importance**: Identifies which voice biomarkers drive predictions
-2. **Decision Tree Rules**: Provides explicit thresholds and decision pathways  
-3. **Surrogate Validation**: Ensures interpretable model accurately represents MLP behavior
+1. **SHAP Feature Importance**: Identifies which voice biomarkers drive Random Forest predictions
+2. **Decision Tree Rules**: Provides explicit thresholds and decision pathways from surrogate model
+3. **Surrogate Validation**: Ensures interpretable model accurately represents Random Forest behavior through fidelity metrics
 4. **Clinical Correlation**: Maps AI insights to medical knowledge and expectations
 
 ### Benefits for Healthcare Professionals
@@ -198,7 +204,7 @@ This work is intended for **research and prototyping purposes only**. It is not 
 
 ### Technical Limitations
 1. **Dataset Size**: Limited to available voice recordings from single institution
-2. **Surrogate Fidelity**: Interpretable model may not capture all MLP complexity  
+2. **Surrogate Fidelity**: Interpretable model may not capture all Random Forest ensemble complexity  
 3. **Generalizability**: Performance may vary across different populations and recording conditions
 4. **Feature Engineering**: Voice biomarker extraction may miss relevant patterns
 5. **Bias**: The dataset provides bias to the model, as only 2 classes need to be identified. In deployment, that may not be the case. 
@@ -227,12 +233,11 @@ Permission for the use of audio data and patient information was granted by **Dr
 ## 🔧 Technical Dependencies
 
 ### Core Libraries
-- **TensorFlow/Keras**: Neural network implementation
-- **scikit-learn**: Machine learning utilities and evaluation
+- **scikit-learn**: Random Forest implementation and machine learning utilities
 - **pandas/numpy**: Data manipulation and numerical computing
 - **librosa**: Audio processing and feature extraction
 - **SHAP**: Model interpretability and feature analysis
-- **imbalanced-learn**: Class imbalance handling
+- **joblib**: Model serialization and persistence
 - **matplotlib/seaborn**: Visualization and plotting
 
 ### Audio Processing
