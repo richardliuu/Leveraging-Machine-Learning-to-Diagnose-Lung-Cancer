@@ -6,17 +6,15 @@ import joblib
 import shap
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier, export_graphviz
-from sklearn.model_selection import GroupKFold, train_test_split, GridSearchCV
+from sklearn.model_selection import GroupKFold, train_test_split, GridSearchCV, StratifiedGroupKFold
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
-from imblearn.combine import SMOTEENN
 from collections import Counter
 from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
-from xgboost import XGBClassifier
 
 os.environ['PYTHONHASHSEED'] = '42'
-SEED = 42
+SEED = 141
 np.random.seed(SEED)
 random.seed(SEED)
 
@@ -63,7 +61,7 @@ def run_rf_cross_validation(df):
     print(f"Total patients: {df['patient_id'].nunique()}")
     print(f"Features: {X.shape[1]}")
 
-    group_kfold = GroupKFold(n_splits=4)
+    group_kfold = StratifiedGroupKFold(n_splits=4)
 
     all_reports = []
     all_conf_matrices = []
@@ -87,27 +85,35 @@ def run_rf_cross_validation(df):
         print(f"Train: {len(train_patients)} patients, {len(X_train)} samples")
         print(f"Test:  {len(test_patients)} patients, {len(X_test)} samples")
 
-        # Train Random Forest
         rf = RandomForestClassifier(
             criterion="log_loss",
-            n_estimators=200,
-            max_depth=5,
-            max_features=None,
-            min_samples_split=12,
-            min_samples_leaf=3,
+            n_estimators=200,            # ↓ from 200
+            max_depth=5,                # ↓ from 12
+            max_leaf_nodes=None,
+            max_features=0.6,           # Use only 30% of features (~5 features)
+            min_samples_split=25,       # ↑ from 12
+            min_samples_leaf=10,        # ↑ from 3
             class_weight='balanced',
-            random_state=SEED, 
-            n_jobs=-1, 
+            bootstrap=True,             # Ensure bootstrapping is on
+            oob_score=True,            # Add OOB scoring for additional validation
+            random_state=SEED,
+            n_jobs=-1,
         )
+        
         rf.fit(X_train, y_train)
-    
+        
+        # Calculate training performance to check for overfitting
+        y_train_pred = rf.predict(X_train)
+        y_train_prob = rf.predict_proba(X_train)[:, 1]
+        train_accuracy = (y_train_pred == y_train).mean()
+        
         y_pred = rf.predict(X_test)
         y_pred_prob = rf.predict_proba(X_test)[:, 1]
 
         np.set_printoptions(threshold=np.inf)
 
         probs = rf.predict_proba(X_test)
-        print(y_pred_prob)
+        #print(y_pred_prob)
 
         results_df = X_test.copy()
         results_df['true_label'] = y_test.values
@@ -117,7 +123,7 @@ def run_rf_cross_validation(df):
         training_data = pd.read_csv("data/jitter_shimmerlog.csv")
         results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
         results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
-        results_df.to_csv('data/rf_surrogate_data.csv', index=False)
+        #results_df.to_csv('data/rf_surrogate_data.csv', index=False)
 
         """
         mis_idx = np.where((y_test == 0) & (y_pred == 1))[0]
@@ -137,6 +143,10 @@ def run_rf_cross_validation(df):
             auc = np.nan
 
         print(f"\nFold {fold+1} Results:")
+        print(f"Training Accuracy: {train_accuracy:.4f}")
+        print(f"Test Accuracy: {report['accuracy']:.4f}")
+        print(f"Overfitting Gap: {(train_accuracy - report['accuracy']):.4f}")
+        print("\nTest Set Classification Report:")
         print(classification_report(y_test, y_pred))
         print("Confusion Matrix:")
         print(c_matrix)
@@ -151,13 +161,16 @@ def run_rf_cross_validation(df):
             'test_patients': len(test_patients),
             'train_samples': len(X_train),
             'test_samples': len(X_test),
-            'accuracy': report['accuracy']
+            'train_accuracy': train_accuracy,
+            'test_accuracy': report['accuracy'],
+            'overfitting_gap': train_accuracy - report['accuracy']
         })
 
         individual_tree = rf.estimators_[0]
 
-        print(export_graphviz(individual_tree, feature_names=feature_cols))
+        #print(export_graphviz(individual_tree, feature_names=feature_cols))
 
+        """
         X_test_df = pd.DataFrame(X_test, columns=feature_cols)
         X_explain = X_test_df.iloc[:]
         X_explain_np = X_explain.to_numpy()
@@ -180,6 +193,7 @@ def run_rf_cross_validation(df):
             f"SHAP values shape {shap_vals_to_plot.shape} != input shape {X_explain_np.shape}"
 
         shap.summary_plot(shap_vals_to_plot, X_explain, feature_names=feature_cols)
+        """
 
     return all_reports, all_conf_matrices, fold_details, all_roc_aucs, rf
 
@@ -205,6 +219,23 @@ def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_a
     print(f"\nClass-wise F1-scores:")
     print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
     print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
+
+    # Plot F1 scores per fold
+    plt.figure(figsize=(10, 6))
+    folds = list(range(1, len(class_0_f1) + 1))
+    
+    plt.plot(folds, class_0_f1, 'o-', label='Class 0 F1-score', linewidth=2, markersize=8)
+    plt.plot(folds, class_1_f1, 's-', label='Class 1 F1-score', linewidth=2, markersize=8)
+    
+    plt.xlabel('Fold')
+    plt.ylabel('F1-score')
+    plt.title('F1-score per Fold for Random Forest Classifer')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.xticks(folds)
+    plt.ylim(0, 1)
+    plt.tight_layout()
+    plt.show()
 
     avg_conf_matrix = np.mean(all_conf_matrices, axis=0)
     print(f"\nAverage Confusion Matrix:")
