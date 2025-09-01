@@ -209,7 +209,7 @@ if __name__ == "__main__":
         y_test = y.iloc[:100].values
         
         # Extract MRT from saved model
-        mrt = extract_mrt_from_saved_model("models/rf_model.pkl", X_test, y_test, feature_names)
+        mrt = extract_mrt_from_saved_model("models/rf2_model.pkl", X_test, y_test, feature_names)
         
         # Generate visualizations and exports
         mrt.plot_similarity_distribution("tree_similarity_distribution.png")
