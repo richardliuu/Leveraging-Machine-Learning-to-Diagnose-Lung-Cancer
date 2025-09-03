@@ -87,15 +87,15 @@ def run_rf_cross_validation(df):
 
         rf = RandomForestClassifier(
             criterion="log_loss",
-            n_estimators=200,            # ↓ from 200
-            max_depth=5,                # ↓ from 12
+            n_estimators=200,           
+            max_depth=5,                
             max_leaf_nodes=None,
-            max_features=0.6,           # Use only 30% of features (~5 features)
-            min_samples_split=25,       # ↑ from 12
-            min_samples_leaf=10,        # ↑ from 3
+            max_features=0.6,           
+            min_samples_split=25,       
+            min_samples_leaf=10,       
             class_weight='balanced',
-            bootstrap=True,             # Ensure bootstrapping is on
-            oob_score=True,            # Add OOB scoring for additional validation
+            bootstrap=True,             
+            oob_score=True,            
             random_state=SEED,
             n_jobs=-1,
         )
@@ -166,7 +166,7 @@ def run_rf_cross_validation(df):
             'overfitting_gap': train_accuracy - report['accuracy']
         })
 
-        individual_tree = rf.estimators_[0]
+        individual_tree = rf.estimators_[158]
 
         #print(export_graphviz(individual_tree, feature_names=feature_cols))
 
