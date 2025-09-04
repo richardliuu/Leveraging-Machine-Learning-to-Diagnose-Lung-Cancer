@@ -36,14 +36,15 @@ import numpy as np
 import random
 import os
 import joblib
+import shap
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 
 # Seed setting for reproducibility
 os.environ['PYTHONHASHSEED'] = '42'
-SEED = 42
+SEED = 141
 np.random.seed(SEED)
 random.seed(SEED)
 
@@ -214,7 +215,6 @@ class DataHandling:
         self.train_patients = set(df.iloc[train_idx]['patient_id'])
         self.test_patients = set(df.iloc[test_idx]['patient_id'])
 
-
 class RandomForestModel:
     """
     Random Forest classifier for lung cancer stage classification.
@@ -227,13 +227,16 @@ class RandomForestModel:
         model (RandomForestClassifier): The scikit-learn Random Forest model
         feature_cols (list): Names of the feature columns for interpretability
     
-    Model Configuration:
+    Model Configuration (with aggressive regularization):
         - criterion: "log_loss" for probabilistic splits
         - n_estimators: 200 trees for stable predictions
-        - max_depth: 5 to prevent overfitting on medical data
-        - min_samples_split: 12 to ensure robust splits
-        - min_samples_leaf: 3 for stable leaf predictions
+        - max_depth: 5 to prevent overfitting (reduced from 12)
+        - max_features: 0.6 to use only 60% of features for each split
+        - min_samples_split: 25 to ensure robust splits (increased from 12)
+        - min_samples_leaf: 10 for stable leaf predictions (increased from 3)
         - class_weight: 'balanced' to handle class imbalance
+        - bootstrap: True for bootstrapping samples
+        - oob_score: True for out-of-bag scoring validation
         - random_state: Fixed seed for reproducibility
         - n_jobs: -1 to use all available processors
     """
@@ -252,10 +255,13 @@ class RandomForestModel:
             criterion="log_loss",
             n_estimators=200,
             max_depth=5,
-            max_features=None,
-            min_samples_split=12,
-            min_samples_leaf=3,
+            max_leaf_nodes=None,
+            max_features=0.3,
+            min_samples_split=25,
+            min_samples_leaf=10,
             class_weight='balanced',
+            bootstrap=True,
+            oob_score=True,
             random_state=SEED,
             n_jobs=-1,
         )
@@ -310,9 +316,10 @@ class RandomForestModel:
         """
         return self.model.predict_proba(X_test)
     
-    def evaluate(self, X_test, y_test):
+    def evaluate(self, X_test, y_test, X_train=None, y_train=None):
         """
-        Evaluate the model performance on test data with comprehensive metrics.
+        Evaluate the model performance on test data with comprehensive metrics,
+        including overfitting detection by comparing training and test performance.
         
         This method computes multiple performance metrics to provide a thorough
         assessment of model performance for medical classification tasks.
@@ -320,13 +327,17 @@ class RandomForestModel:
         Args:
             X_test (pd.DataFrame): Test feature matrix
             y_test (pd.Series): True test labels
+            X_train (pd.DataFrame, optional): Training feature matrix for overfitting check
+            y_train (pd.Series, optional): Training labels for overfitting check
             
         Returns:
-            tuple: A 3-tuple containing:
+            tuple: A 5-tuple containing:
                 - report (dict): Comprehensive classification report with precision,
                   recall, F1-score, and support for each class
                 - c_matrix (np.ndarray): Confusion matrix showing prediction accuracy
                 - auc (float): ROC-AUC score for binary classification performance
+                - train_accuracy (float, optional): Training accuracy if X_train provided
+                - overfitting_gap (float, optional): Difference between train and test accuracy
         
         Metrics Computed:
             1. Classification Report:
@@ -345,7 +356,7 @@ class RandomForestModel:
                 - Values closer to 1.0 indicate better discriminative performance
         """
         y_pred = self.predict(X_test)
-        y_pred_proba = self.predict_proba(X_test)[:, 1]  # Probability of positive class
+        y_pred_prob = self.predict_proba(X_test)[:, 1]  # Probability of positive class
         
         # Generate comprehensive classification report
         report = classification_report(y_test, y_pred, output_dict=True)
@@ -355,11 +366,19 @@ class RandomForestModel:
         
         # Calculate ROC-AUC score with error handling
         try:
-            auc = roc_auc_score(y_test, y_pred_proba)
+            auc = roc_auc_score(y_test, y_pred_prob)
         except:
             auc = np.nan
         
-        return report, c_matrix, auc
+        # Calculate training performance for overfitting check if training data provided
+        train_accuracy = None
+        overfitting_gap = None
+        if X_train is not None and y_train is not None:
+            y_train_pred = self.predict(X_train)
+            train_accuracy = (y_train_pred == y_train).mean()
+            overfitting_gap = train_accuracy - report['accuracy']
+        
+        return report, c_matrix, auc, train_accuracy, overfitting_gap
     
     def get_feature_importance(self):
         """
@@ -387,6 +406,206 @@ class RandomForestModel:
         return None
 
 
+class SHAPAnalyzer:
+    """
+    SHAP (SHapley Additive exPlanations) analyzer for Random Forest model interpretability.
+    
+    This class encapsulates all SHAP analysis functionality, providing a unified interface
+    for generating and visualizing feature contributions to model predictions. SHAP values
+    offer a game-theoretic approach to understanding how each feature impacts the model's
+    output for individual predictions.
+    
+    Attributes:
+        model: The trained Random Forest model to analyze
+        feature_cols (list): Names of feature columns for labeling
+        fold_shap_values (list): Stores SHAP values from each fold
+        fold_explainers (list): Stores TreeExplainer objects from each fold
+    """
+    
+    def __init__(self):
+        """
+        Initialize the SHAP analyzer.
+        """
+        self.model = None
+        self.feature_cols = None
+        self.fold_shap_values = []
+        self.fold_explainers = []
+    
+    def analyze_fold(self, model, X_test, feature_cols, fold_num, save_plot=False):
+        """
+        Generate SHAP analysis for a specific fold.
+        
+        Args:
+            model: Trained RandomForestClassifier model
+            X_test (pd.DataFrame): Test data for generating SHAP values
+            feature_cols (list): Feature column names
+            fold_num (int): Current fold number (1-indexed)
+            save_plot (bool): Whether to save the SHAP plot to file
+            
+        Returns:
+            tuple: (shap_values, explainer) where:
+                - shap_values: SHAP values for the positive class
+                - explainer: TreeExplainer object for further analysis
+        
+        SHAP Analysis Process:
+            1. Creates background dataset for baseline comparisons
+            2. Initializes TreeExplainer optimized for tree-based models
+            3. Computes SHAP values showing feature contributions
+            4. Generates summary plot showing feature importance and impact
+        """
+        self.model = model
+        self.feature_cols = feature_cols
+        
+        if self.model is None or self.feature_cols is None:
+            print("Model not provided. Cannot generate SHAP analysis.")
+            return None, None
+        
+        print(f"\nGenerating SHAP analysis for fold {fold_num}...")
+        
+        # Convert to DataFrame if needed and ensure column names
+        X_test_df = pd.DataFrame(X_test, columns=self.feature_cols)
+        
+        # Sample background data for SHAP baseline
+        # Using small background set for computational efficiency
+        background_size = min(20, len(X_test_df))
+        background = X_test_df.sample(n=background_size, random_state=42).to_numpy()
+        
+        # Initialize SHAP TreeExplainer with background data
+        explainer = shap.TreeExplainer(self.model, background)
+        
+        # Calculate SHAP values for test set
+        X_explain_np = X_test_df.to_numpy()
+        shap_values = explainer.shap_values(X_explain_np)
+        
+        # Handle different SHAP output formats
+        if isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
+            # 3D array: (samples, features, classes)
+            print(f"SHAP values shape (3D): {shap_values.shape}")
+            class_index = 1  # Focus on positive class
+            shap_vals_to_plot = shap_values[:, :, class_index]
+        elif isinstance(shap_values, list):
+            # List of arrays for each class
+            shap_vals_to_plot = shap_values[1]  # Positive class
+        else:
+            # 2D array for binary classification
+            shap_vals_to_plot = shap_values
+        
+        # Verify shape consistency
+        assert shap_vals_to_plot.shape == X_explain_np.shape, \
+            f"SHAP values shape {shap_vals_to_plot.shape} != input shape {X_explain_np.shape}"
+        
+        # Store fold results
+        self.fold_shap_values.append(shap_vals_to_plot)
+        self.fold_explainers.append(explainer)
+        
+        # Generate SHAP summary plot
+        plt.figure(figsize=(12, 8))
+        shap.summary_plot(shap_vals_to_plot, X_test_df, 
+                         feature_names=self.feature_cols, 
+                         show=False)
+        
+        # Add title with fold information
+        plt.title(f'SHAP Feature Importance - Fold {fold_num}', fontsize=14, pad=20)
+        plt.tight_layout()
+        
+        # Save plot if requested
+        if save_plot:
+            filename = f'shap_analysis_fold_{fold_num}.png'
+            plt.savefig(filename, dpi=150, bbox_inches='tight')
+            print(f"SHAP plot saved as {filename}")
+        
+        plt.show()
+        
+        # Calculate and display mean absolute SHAP values for this fold
+        mean_abs_shap = np.abs(shap_vals_to_plot).mean(axis=0)
+        shap_importance_df = pd.DataFrame({
+            'feature': self.feature_cols,
+            'mean_abs_shap': mean_abs_shap
+        }).sort_values('mean_abs_shap', ascending=False)
+        
+        print(f"\nFold {fold_num} - Top 10 Features by Mean Absolute SHAP Value:")
+        print(shap_importance_df.head(10))
+        
+        return shap_vals_to_plot, explainer
+    
+    def generate_cross_fold_summary(self, save_plot=False):
+        """
+        Generate a summary of SHAP values across all folds.
+        
+        This method aggregates SHAP values from all folds to provide an overall
+        view of feature importance consistency and variation across different
+        data splits.
+        
+        Args:
+            save_plot (bool): Whether to save the summary plot to file
+        
+        Returns:
+            pd.DataFrame: Summary statistics of SHAP values across folds
+        """
+        if not self.fold_shap_values:
+            print("No SHAP values available. Run analyze_fold first.")
+            return None
+        
+        print("\n" + "="*60)
+        print("CROSS-FOLD SHAP SUMMARY")
+        print("="*60)
+        
+        # Concatenate all SHAP values across folds
+        all_shap_values = np.concatenate(self.fold_shap_values, axis=0)
+        
+        # Calculate overall statistics
+        mean_abs_shap_overall = np.abs(all_shap_values).mean(axis=0)
+        std_abs_shap_overall = np.abs(all_shap_values).std(axis=0)
+        
+        # Create summary dataframe
+        summary_df = pd.DataFrame({
+            'feature': self.feature_cols,
+            'mean_importance': mean_abs_shap_overall,
+            'std_importance': std_abs_shap_overall,
+            'cv_coefficient': std_abs_shap_overall / (mean_abs_shap_overall + 1e-10)
+        }).sort_values('mean_importance', ascending=False)
+        
+        print("\nOverall Feature Importance (across all folds):")
+        print(summary_df.head(15))
+        
+        # Calculate per-fold importance for consistency check
+        fold_importances = []
+        for fold_shap in self.fold_shap_values:
+            fold_importance = np.abs(fold_shap).mean(axis=0)
+            fold_importances.append(fold_importance)
+        
+        # Create consistency matrix
+        fold_importance_matrix = np.array(fold_importances)
+        
+        # Plot feature importance consistency across folds
+        top_n = 15
+        top_features_idx = np.argsort(mean_abs_shap_overall)[-top_n:][::-1]
+        top_features = [self.feature_cols[i] for i in top_features_idx]
+        
+        plt.figure(figsize=(14, 8))
+        for fold_idx, fold_imp in enumerate(fold_importances):
+            plt.plot(range(top_n), fold_imp[top_features_idx], 
+                    'o-', alpha=0.7, label=f'Fold {fold_idx+1}')
+        
+        plt.plot(range(top_n), mean_abs_shap_overall[top_features_idx], 
+                'k-', linewidth=3, label='Mean', marker='s', markersize=8)
+        
+        plt.xticks(range(top_n), top_features, rotation=45, ha='right')
+        plt.xlabel('Features')
+        plt.ylabel('Mean Absolute SHAP Value')
+        plt.title('Feature Importance Consistency Across Folds')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        if save_plot:
+            plt.savefig('shap_cross_fold_consistency.png', dpi=150, bbox_inches='tight')
+            print("Cross-fold consistency plot saved as shap_cross_fold_consistency.png")
+        
+        plt.show()
+        
+        return summary_df
+
 def pipeline(handler):
     """
     Execute the complete machine learning pipeline with patient-grouped cross-validation.
@@ -398,6 +617,8 @@ def pipeline(handler):
     Args:
         handler (DataHandling): Initialized DataHandling object containing loaded
                                dataset and preprocessing configurations.
+        generate_shap_for_all_folds (bool): If True, generates SHAP analysis for each fold.
+                                           If False, only generates for the last fold.
     
     Pipeline Steps (per fold):
         1. Patient-grouped data splitting to prevent leakage
@@ -439,8 +660,7 @@ def pipeline(handler):
     # Load the full dataset for patient tracking
     df = pd.read_csv(handler.data)
     
-    # Initialize GroupKFold for patient-grouped cross-validation
-    group_kfold = GroupKFold(n_splits=4)
+    group_kfold = StratifiedGroupKFold(n_splits=4)
     
     # Execute cross-validation
     for fold, (train_idx, test_idx) in enumerate(group_kfold.split(handler.X, handler.y, handler.groups)):
@@ -462,8 +682,10 @@ def pipeline(handler):
         model = RandomForestModel()
         model.train(handler.X_train, handler.y_train, handler.feature_cols)
         
-        # Evaluate model performance
-        report, c_matrix, auc = model.evaluate(handler.X_test, handler.y_test)
+        # Evaluate model performance with overfitting check
+        report, c_matrix, auc, train_accuracy, overfitting_gap = model.evaluate(
+            handler.X_test, handler.y_test, handler.X_train, handler.y_train
+        )
         
         # Store predictions for analysis
         y_pred = model.predict(handler.X_test)
@@ -479,15 +701,45 @@ def pipeline(handler):
             'test_patients': len(handler.test_patients),
             'train_samples': len(handler.X_train),
             'test_samples': len(handler.X_test),
-            'accuracy': report['accuracy']
+            'accuracy': report['accuracy'],
+            'train_accuracy': train_accuracy,
+            'overfitting_gap': overfitting_gap
         })
+
+        results_df = handler.X_test.copy()
+        results_df['true_label'] = handler.y_test.values
+        results_df['predicted_label'] = y_pred
+        y_pred_prob = model.predict_proba(handler.X_test)[:, 1]  # Get probability for class 1
+        results_df['c1_prob'] = y_pred_prob
+
+        training_data = pd.read_csv("data/jitter_shimmerlog.csv")
+        results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
+        results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
+        results_df.to_csv('data/rf2_surrogate_data.csv', index=False)
         
-        # Display fold results
+        # Display fold results with overfitting analysis
         print(f"\nFold {fold+1} Results:")
+        print(f"Training Accuracy: {train_accuracy:.4f}")
+        print(f"Test Accuracy: {report['accuracy']:.4f}")
+        print(f"Overfitting Gap: {overfitting_gap:.4f}")
+        print("\nTest Set Classification Report:")
         print(classification_report(handler.y_test, y_pred))
         print("Confusion Matrix:")
         print(c_matrix)
         print(f"ROC AUC Score: {auc:.4f}")
+        
+        # Store model for SHAP analysis
+        if fold == 0:
+            shap_analyzer = SHAPAnalyzer()
+        
+        # Generate SHAP analysis for every fold
+        shap_values, explainer = shap_analyzer.analyze_fold(
+            model.model,  # Pass the actual sklearn model
+            handler.X_test,
+            handler.feature_cols,
+            fold_num=fold+1,
+            save_plot=False
+        )
         
         # Store final model for feature importance analysis
         if fold == 3:  # Last fold
@@ -498,17 +750,26 @@ def pipeline(handler):
     
     # Calculate accuracy statistics
     accuracies = [r['accuracy'] for r in handler.reports]
+    train_accuracies = [d['train_accuracy'] for d in handler.fold_details]
+    overfitting_gaps = [d['overfitting_gap'] for d in handler.fold_details]
+    
     print("Per-fold results:")
-    for i, (acc, details) in enumerate(zip(accuracies, handler.fold_details)):
-        print(f"Fold {i+1}: {acc:.4f} accuracy "
+    for i, details in enumerate(handler.fold_details):
+        print(f"Fold {i+1}: Train={details['train_accuracy']:.4f}, Test={details['accuracy']:.4f}, "
+              f"Gap={details['overfitting_gap']:.4f} "
               f"({details['test_patients']} patients, {details['test_samples']} samples)")
     
     avg_accuracy = np.mean(accuracies)
     std_accuracy = np.std(accuracies)
+    avg_train_accuracy = np.mean(train_accuracies)
+    avg_overfitting_gap = np.mean(overfitting_gaps)
+    
     print(f"\nOverall Performance:")
-    print(f"Mean Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
-    print(f"Min Accuracy: {min(accuracies):.4f}")
-    print(f"Max Accuracy: {max(accuracies):.4f}")
+    print(f"Mean Training Accuracy: {avg_train_accuracy:.4f}")
+    print(f"Mean Test Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
+    print(f"Mean Overfitting Gap: {avg_overfitting_gap:.4f}")
+    print(f"Min Test Accuracy: {min(accuracies):.4f}")
+    print(f"Max Test Accuracy: {max(accuracies):.4f}")
     
     # Calculate class-wise F1 scores
     class_0_f1 = [r['0']['f1-score'] for r in handler.reports]
@@ -545,12 +806,15 @@ def pipeline(handler):
     if importance_df is not None:
         print(importance_df.head(10))
     
-    # Optionally save the final model
-    # joblib.dump(final_model.model, "models/rf_model.pkl")
-    # print("Random Forest model saved as rf_model.pkl")
+    # Generate cross-fold SHAP summary
+    print("\nGenerating cross-fold SHAP summary...")
+    shap_summary = shap_analyzer.generate_cross_fold_summary(save_plot=False)
     
-    return handler
-
+    # Optionally save the final model
+    #joblib.dump(final_model.model, "models/rf2_model.pkl")
+    #print("Random Forest model saved as rf2_model.pkl")
+    
+    return handler, shap_analyzer
 
 def main():
     """
@@ -578,15 +842,16 @@ def main():
     if not is_clean:
         print("\nDATA QUALITY ISSUES DETECTED! Results may be unreliable")
     
-    # Step 2: Execute pipeline
-    print("\nStep 2: Cross-Validation Pipeline")
+    # Step 2: Execute pipeline with SHAP analysis for all folds
+    print("\nStep 2: Cross-Validation Pipeline with SHAP Analysis")
     results = pipeline(handler)
     
     if results is None:
         print("\nPipeline failed due to patient leakage!")
         return
     
-    print("\nPipeline completed successfully!")
+    handler, shap_analyzer = results
+    print("\nPipeline completed successfully with SHAP analysis for all folds!")
 
 
 if __name__ == "__main__":
