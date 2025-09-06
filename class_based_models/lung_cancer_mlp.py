@@ -225,9 +225,6 @@ class DataHandling:
         self.num_classes = len(self.encoder.classes_)
         self.X_train, self.y_train = self.smote.fit_resample(self.X_train, self.y_train)
 
-    """
-    
-    """
     def put_to_categorical(self):
         self.y_train = to_categorical(self.y_train, num_classes=self.num_classes)
         self.y_test = to_categorical(self.y_test, num_classes=self.num_classes)
