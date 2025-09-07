@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 import matplotlib.pyplot as plt
 
 os.environ['PYTHONHASHSEED'] = '42'
-SEED = 141
+SEED = 42
 np.random.seed(SEED)
 random.seed(SEED)
 
@@ -120,10 +120,10 @@ def run_rf_cross_validation(df):
         results_df['predicted_label'] = y_pred
         results_df['c1_prob'] = y_pred_prob
 
-        training_data = pd.read_csv("data/jitter_shimmerlog.csv")
+        training_data = pd.read_csv("data/train_data_normalized.csv")
         results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
         results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
-        #results_df.to_csv('data/rf_surrogate_data.csv', index=False)
+        results_df.to_csv('data/rf_surrogate_data.csv', index=False)
 
         """
         mis_idx = np.where((y_test == 0) & (y_pred == 1))[0]
@@ -244,7 +244,7 @@ def summarize_rf_results(all_reports, all_conf_matrices, fold_details, all_roc_a
 
 if __name__ == "__main__":
     print("Loading dataset")
-    df = pd.read_csv("data/jitter_shimmerlog.csv")
+    df = pd.read_csv("data/train_data_normalized.csv")
     print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
 
     print("\nStep 1: Data Integrity Check")
@@ -261,5 +261,5 @@ if __name__ == "__main__":
     else:
         print("\nCross-validation failed due to patient leakage!")
 
-    #joblib.dump(rf, "models/rf_model.pkl")
-    #print("Random Forest saved as rf_model.pkl")
+    joblib.dump(rf, "models/rf_model.pkl")
+    print("Random Forest saved as rf_model.pkl")
