@@ -125,15 +125,6 @@ def run_rf_cross_validation(df):
         results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
         results_df.to_csv('data/rf_surrogate_data.csv', index=False)
 
-        """
-        mis_idx = np.where((y_test == 0) & (y_pred == 1))[0]
-        misclassified_samples = X.iloc[mis_idx]
-
-        print(misclassified_samples)
-
-        misclassified_samples.to_csv("data/randomforest_incorrect.csv",index=False)
-        """
-
         # Metrics
         report = classification_report(y_test, y_pred, output_dict=True)
         c_matrix = confusion_matrix(y_test, y_pred)
