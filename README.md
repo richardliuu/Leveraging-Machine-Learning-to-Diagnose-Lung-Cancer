@@ -2,13 +2,13 @@
 
 ## 🎯 Project Overview
 
-This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
+This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling and a Most Representative Tree**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
 
 ### Key Innovation: Random Forest with Decision Tree Surrogate Framework
 
 - **Primary Model**: Random Forest Classifier for high-accuracy lung cancer binary classification
 - **Surrogate Model**: Decision Tree trained to mimic Random Forest predictions while providing interpretable decision rules
-- **SHAP Analysis**: Feature importance comparison between both models for validation and clinical insight
+- **Most Representative Tree**: Decision Tree extracted from the ensemble Random Forest Classifier
 
 ## 🏥 Clinical Significance
 
@@ -26,11 +26,11 @@ Lung cancer can cause subtle changes in voice patterns due to effects on the res
 Traditional deep learning models for medical diagnosis are "black boxes" - highly accurate but difficult for clinicians to understand and trust.
 
 ### Solution
-I implemented a **surrogate model framework** where:
+We implemented an **interpretable framework** where:
 
 1. **Random Forest Model** (`models/randfor.py`): Trained on voice biomarkers for optimal accuracy using ensemble learning
 2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate Random Forest predictions using interpretable rules
-3. **Comparative SHAP Analysis**: Feature importance validation across both models
+3. **Most Representative Tree**: Provides insight on the average behaviour of the Random Forest Classifier
 4. **Clinical Translation**: Provides explainable decision pathways for medical professionals
 
 ## 📊 Technical Architecture
