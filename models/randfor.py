@@ -161,7 +161,6 @@ def run_rf_cross_validation(df):
 
         #print(export_graphviz(individual_tree, feature_names=feature_cols))
 
-        """
         X_test_df = pd.DataFrame(X_test, columns=feature_cols)
         X_explain = X_test_df.iloc[:]
         X_explain_np = X_explain.to_numpy()
@@ -184,7 +183,6 @@ def run_rf_cross_validation(df):
             f"SHAP values shape {shap_vals_to_plot.shape} != input shape {X_explain_np.shape}"
 
         shap.summary_plot(shap_vals_to_plot, X_explain, feature_names=feature_cols)
-        """
 
     return all_reports, all_conf_matrices, fold_details, all_roc_aucs, rf
 
