@@ -1,6 +1,6 @@
 # Interpretable Lung Cancer Diagnosis from Voice Biomarkers
 
-## 🎯 Project Overview
+## Project Overview
 
 This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling and a Most Representative Tree**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
 
@@ -10,7 +10,7 @@ This project presents a novel machine learning approach for lung cancer diagnosi
 - **Surrogate Model**: Decision Tree trained to mimic Random Forest predictions while providing interpretable decision rules
 - **Most Representative Tree**: Decision Tree extracted from the ensemble Random Forest Classifier
 
-## 🏥 Clinical Significance
+## Clinical Significance
 
 Lung cancer can cause subtle changes in voice patterns due to effects on the respiratory system. This project investigates whether machine learning models can detect such changes using features extracted from speech recordings, offering a **non-invasive, accessible screening approach**.
 
@@ -20,7 +20,7 @@ Lung cancer can cause subtle changes in voice patterns due to effects on the res
 - **Early Detection**: Potential to identify subtle vocal changes before clinical symptoms
 - **Cost-Effective**: Minimal infrastructure requirements for widespread deployment
 
-## 🧠 Novel Interpretability Approach
+## Novel Interpretability Approach
 
 ### The Challenge
 Traditional deep learning models for medical diagnosis are "black boxes" - highly accurate but difficult for clinicians to understand and trust.
@@ -33,7 +33,7 @@ We implemented an **interpretable framework** where:
 3. **Most Representative Tree**: Provides insight on the average behaviour of the Random Forest Classifier
 4. **Clinical Translation**: Provides explainable decision pathways for medical professionals
 
-## 📊 Technical Architecture
+## Technical Architecture
 
 ### Models Implemented
 
@@ -56,32 +56,22 @@ We implemented an **interpretable framework** where:
 - **Architecture**: Deep neural network with batch normalization and dropout
 - **Role**: Baseline comparison to demonstrate Random Forest superiority for this task
 
-### 🏗️ Architectural Decision: Why Random Forest?
+### Architectural Decision: Why Random Forest?
 
 After comprehensive evaluation of multiple architectures, the **Random Forest Classifier was selected as the primary model** for this lung cancer classification task. This decision was based on several key factors:
 
 #### Performance Advantages
 - **Random Forest Benefits**:
-  - Superior classification accuracy on tabular voice biomarker features
   - Robust performance with built-in feature selection and ensemble averaging
   - Excellent handling of class imbalance through balanced class weights
-  - Natural resistance to overfitting through bootstrap aggregating
+  - Higher resistance to overfitting through bootstrap aggregating
+  - Fast model training time 
 
 #### Technical Rationale
 - **Feature Nature**: Voice biomarkers are tabular numerical features ideal for tree-based methods
 - **Interpretability**: Tree-based models provide natural feature importance and decision paths
 - **Stability**: Ensemble approach reduces variance and improves generalization
 - **Efficiency**: Fast training and inference suitable for clinical deployment
-
-#### Comparison with Other Approaches
-- **vs. MLP**: Random Forest shows better performance on this tabular dataset without requiring extensive hyperparameter tuning
-- **vs. Single Decision Tree**: Ensemble approach provides better accuracy while maintaining interpretability through surrogate modeling
-- **vs. Deep Learning**: Avoids overfitting issues common with neural networks on smaller medical datasets
-
-#### Clinical Deployment Considerations
-- **Reliability**: Ensemble voting provides confidence estimates for predictions
-- **Interpretability**: Combined with surrogate decision trees for full transparency
-- **Robustness**: Less sensitive to outliers and missing values common in medical data
 
 The surrogate decision tree framework enables clinicians to understand Random Forest decisions through simple, interpretable rules while maintaining the ensemble's superior accuracy.
 
@@ -91,10 +81,10 @@ The surrogate decision tree framework enables clinicians to understand Random Fo
 Voice Recordings → Feature Extraction → Model Training → Surrogate Analysis → Clinical Interpretation
 ```
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
-science2/
+repository/
 ├── models/                      # Primary and surrogate models
 │   ├── randfor.py              # Main Random Forest classifier with SHAP analysis
 │   ├── decisiontree.py         # Decision tree surrogate model for Random Forest
@@ -113,11 +103,10 @@ science2/
 └── requirements.txt            # Project dependencies
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Python 3.8+
-- CUDA-compatible GPU (recommended for neural network training and running SHAP)
 
 ### Installation
 
@@ -149,7 +138,7 @@ science2/
    python class_based_models/lung_cancer_mlp.py
    ```
 
-## 📈 Key Features
+## Key Features
 
 ### Rigorous Validation
 - **Patient-Grouped Cross-Validation**: Prevents data leakage by ensuring no patient appears in both training and testing sets
@@ -167,7 +156,7 @@ science2/
 - **Fidelity Assessment**: Validates surrogate accuracy against Random Forest using R² scores
 - **Comparative Analysis**: Validates surrogate fidelity to original Random Forest predictions
 
-## 📊 Model Performance
+## Model Performance
 
 ### Evaluation Metrics
 - **Accuracy**: Overall classification performance
@@ -181,7 +170,7 @@ science2/
 - **Patient-Level Splitting**: Prevents optimistic bias from patient overlap
 - **Stratified Validation**: Maintains class distribution integrity
 
-## 🔬 Clinical Interpretability
+## Clinical Interpretability
 
 ### Understanding Model Decisions
 
@@ -197,7 +186,7 @@ science2/
 - **Trust**: Increased confidence in AI-assisted diagnosis
 - **Education**: Insights into voice-disease relationships for research
 
-## ⚠️ Limitations and Disclaimers
+## Limitations and Disclaimers
 
 ### Research Purpose Only
 This work is intended for **research and prototyping purposes only**. It is not approved for clinical use and should not be used for actual medical diagnosis without proper validation and regulatory approval.
@@ -220,7 +209,7 @@ This work is intended for **research and prototyping purposes only**. It is not 
 - Improve model architecture to improve model accuracy
 - Implementing more explainability tools to enhance human interpretability of the model
 
-## 📊 Data Sources and Ethics
+## Data Sources and Ethics
 
 ### Data Acquisition
 Permission for the use of audio data and patient information was granted by **Dr. Haydar Ankishan**, Associate Professor at Stem Cell Institute of Ankara University, Turkey. The dataset contains:
@@ -230,22 +219,7 @@ Permission for the use of audio data and patient information was granted by **Dr
 - Associated medical history and staging information
 - Proper anonymization and privacy protection measures
 
-## 🔧 Technical Dependencies
-
-### Core Libraries
-- **scikit-learn**: Random Forest implementation and machine learning utilities
-- **pandas/numpy**: Data manipulation and numerical computing
-- **librosa**: Audio processing and feature extraction
-- **SHAP**: Model interpretability and feature analysis
-- **joblib**: Model serialization and persistence
-- **matplotlib/seaborn**: Visualization and plotting
-
-### Audio Processing
-- **librosa**: MFCC extraction and audio analysis
-- **soundfile**: Audio file I/O operations
-- **noisereduce**: Audio preprocessing and noise reduction
-
-## 🤝 Contributing
+## Contributing
 
 This research project welcomes contributions and collaboration in the following areas:
 
@@ -255,7 +229,7 @@ This research project welcomes contributions and collaboration in the following 
 4. **Validation Studies**: Extended evaluation on diverse datasets
 5. **Clinical Integration**: Tools for healthcare professional adoption
 
-## 📞 Contact
+## Contact
 
 For questions about this research or potential collaborations:
 
