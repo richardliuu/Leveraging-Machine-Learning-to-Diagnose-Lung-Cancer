@@ -8,7 +8,6 @@ This project presents a novel machine learning approach for lung cancer diagnosi
 
 - **Primary Model**: Random Forest Classifier for high-accuracy lung cancer binary classification
 - **Surrogate Model**: Decision Tree trained to mimic Random Forest predictions while providing interpretable decision rules
-- **Most Representative Tree**: Decision Tree extracted from the ensemble Random Forest Classifier
 
 ## Clinical Significance
 
@@ -30,8 +29,7 @@ We implemented an **interpretable framework** where:
 
 1. **Random Forest Model** (`models/randfor.py`): Trained on voice biomarkers for optimal accuracy using ensemble learning
 2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate Random Forest predictions using interpretable rules
-3. **Most Representative Tree**: Provides insight on the average behaviour of the Random Forest Classifier
-4. **Clinical Translation**: Provides explainable decision pathways for medical professionals
+3. **Clinical Translation**: Provides explainable decision pathways for medical professionals
 
 ## Technical Architecture
 
@@ -50,11 +48,6 @@ We implemented an **interpretable framework** where:
 - **Benefits**: Provides transparent decision rules and feature thresholds
 - **Validation**: Fidelity assessment ensures surrogate accuracy with R² scores
 - **Architecture**: Max depth 10, max leaf nodes 15, regression-based approach
-
-#### 3. Multi-Layer Perceptron (MLP) - Legacy Implementation
-- **Purpose**: Alternative deep learning approach for comparison
-- **Architecture**: Deep neural network with batch normalization and dropout
-- **Role**: Baseline comparison to demonstrate Random Forest superiority for this task
 
 ### Architectural Decision: Why Random Forest?
 
@@ -85,9 +78,9 @@ Voice Recordings → Feature Extraction → Model Training → Surrogate Analysi
 
 ```
 repository/
-├── models/                      # Primary and surrogate models
+├── models/                     # Primary and surrogate models
 │   ├── randfor.py              # Main Random Forest classifier with SHAP analysis
-│   ├── decisiontree.py         # Decision tree surrogate model for Random Forest
+│   ├── surrogate.py            # Decision tree surrogate model for Random Forest
 │   ├── rf_model.pkl            # Saved Random Forest model
 │   └── mlp.py                  # Alternative MLP implementation for comparison
 ├── class_based_models/         # Legacy neural network implementations
@@ -95,9 +88,8 @@ repository/
 │   └── lung_cancer_cnn.py      # CNN baseline for comparison
 ├── data/                       # Training datasets   
 |   ├── wavfiles/               # Original audio files with lung cancer patients and healthy controls 
-│   ├── jitter_shimmerlog.csv   # Processed voice features for Random Forest
+│   ├── train_data.csv          # Processed voice features for Random Forest
 │   ├── rf_surrogate_data.csv   # Random Forest predictions for surrogate training
-│   └── binary_mfccs.npy        # MFCC features for CNN comparison
 ├── data_processing/            # Analysis and visualization tools
 ├── results/                    # Model outputs and visualizations
 └── requirements.txt            # Project dependencies
