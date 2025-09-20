@@ -88,7 +88,7 @@ def run_rf_cross_validation(df):
         rf = RandomForestClassifier(
             criterion="log_loss",
             n_estimators=200,           
-            max_depth=5,                
+            max_depth=6,                
             max_leaf_nodes=None,
             max_features=0.6,           
             min_samples_split=25,       
@@ -250,5 +250,5 @@ if __name__ == "__main__":
     else:
         print("\nCross-validation failed due to patient leakage!")
 
-    joblib.dump(rf, "models/rf_model.pkl")
-    print("Random Forest saved as rf_model.pkl")
+    #joblib.dump(rf, "models/rf_model.pkl")
+    #print("Random Forest saved as rf_model.pkl")
