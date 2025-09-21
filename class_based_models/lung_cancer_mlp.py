@@ -67,17 +67,6 @@ tf.config.threading.set_intra_op_parallelism_threads(1)
 tf.config.threading.set_inter_op_parallelism_threads(1)
 
 """
-NOTE to self
-1. Tune hyper parameters
-
-2. Add params to SMOTE if needed  
-
-3. Clean up code
-
-4. Should probably use Macro metrics to combat class imbalances 
-"""
-
-"""
 The DataHandling Class handles and transforms the MLP performance data into training data for this surrogate model. 
 
 The instantiated variables for training and validation are transformed through the class functions using LabelEncoder and StandardScaler.
@@ -281,9 +270,9 @@ class LungCancerMLP:
         - Sigmoid output layer for classification
         
         Model Architecture:
-            - Layer 1: 256 neurons + BatchNorm + 30% Dropout
-            - Layer 2: 128 neurons + BatchNorm + 30% Dropout  
-            - Layer 3: 64 neurons + BatchNorm + 30% Dropout
+            - Layer 1: 128 neurons + BatchNorm + 30% Dropout  
+            - Layer 2: 64 neurons + BatchNorm + 30% Dropout
+            - Layer 3: 32 neurons + BatchNorm + 30% Dropout
             - Output: num_classes neurons with sigmoid activation
         
         Regularization Techniques:
@@ -459,7 +448,6 @@ class LungCancerMLP:
     
     def predict(self, X):
         y_pred_prob = self.model.predict(X, verbose=0)
-        #y_pred = np.argmax(y_pred_prob, axis=1)
 
         return y_pred_prob 
 
@@ -509,9 +497,10 @@ def pipeline(handler):
     Example:
         >>> handler = DataHandling()
         >>> handler.load_data()
-        >>> pipeline(handler)
+        >>> pipeline(handler) 
         # Executes complete 4-fold cross-validation pipeline
     """
+
     gkf = GroupKFold(n_splits=4)
 
     for fold, (train_idx, test_idx) in enumerate(gkf.split(handler.X, handler.y, handler.groups)):
@@ -537,8 +526,6 @@ def pipeline(handler):
             handler.y_test, 
             handler.encoder
         )
-
-        y_pred_prob = model.predict(handler.X_test)
 
         #handler.predictions.append(y_pred)
         handler.reports.append(report)
