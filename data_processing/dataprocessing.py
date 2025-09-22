@@ -64,15 +64,18 @@ def extract_parselmouth_features(path):
         pitch_values = pitch.selected_array['frequency']
         pitch_values = pitch_values[pitch_values > 0]
 
+        jitter = parselmouth.to_jitter(snd)
+        shimmer = parselmouth.to_shimmer(snd)
+
         if len(pitch_values) == 0:
             pitch_mean = 0
-            pitch_std = 0
         else:
             pitch_mean = np.mean(pitch_values)
-            pitch_std = np.std(pitch_values)
 
         return {
             "pitch_mean": pitch_mean,
+            "jitter": jitter,
+            "shimmer": shimmer
         }
     except Exception as e:
         print(f"Error in parselmouth analysis: {e}")
@@ -99,24 +102,16 @@ def fix_nan_values(features_list):
             df[col] = df[col].fillna(replacement)
     return df.to_dict('records')
 
-def append_to_npy(new_data, npy_path):
-    if os.path.exists(npy_path):
-        existing = np.load(npy_path, allow_pickle=True)
-        combined = list(existing) + new_data
-    else:
-        combined = new_data
-    np.save(npy_path, np.array(combined, dtype=object), allow_pickle=True)
-
-def process_and_segment_audio(input_path, output_folder, csv_path, npy_path, cancer_stage, patient_id, segment_duration=3):
+def process_and_segment_audio(input_path, output_folder, csv_path, cancer_stage, patient_id, segment_duration=3):
     os.makedirs(output_folder, exist_ok=True)
     y, sr = load_audio(input_path)
     segment_len = int(sr * segment_duration)
 
     features_all = []
     header_fields = [
-        "patient_id", "segment", "cancer_stage", "rms_mean", "rms_std", "zcr_mean", "zcr_std",
-        "centroid_mean", "centroid_std", "flatness_mean", "flatness_std", "hnr_estimate",
-        "pitch_mean", "pitch_std"
+        "patient_id", "segment", "cancer_stage", "rms_mean", "zcr_mean",
+        "centroid_mean", "flatness_mean", "hnr_estimate",
+        "pitch_mean",
     ] + [f"mfcc{i+1}_mean" for i in range(13)]
 
     all_mfccs = []
@@ -152,7 +147,6 @@ def process_and_segment_audio(input_path, output_folder, csv_path, npy_path, can
 
     if all_mfccs:
         labeled_mfccs = [(mfcc, cancer_stage, patient_id) for mfcc in all_mfccs]
-        append_to_npy(labeled_mfccs, npy_path)
 
     print(f"Finished processing {input_path}. Segments: {len(all_mfccs)}")
 
@@ -161,8 +155,7 @@ if __name__ == "__main__":
     input_file = r""
     output_dir = r""
     csv_log = r""
-    mfcc_npy_file = r""
     cancer_stage = 0
     patient_id = ""
-    process_and_segment_audio(input_file, output_dir, csv_log, mfcc_npy_file, cancer_stage, patient_id)
+    process_and_segment_audio(input_file, output_dir, csv_log, cancer_stage, patient_id)
 
