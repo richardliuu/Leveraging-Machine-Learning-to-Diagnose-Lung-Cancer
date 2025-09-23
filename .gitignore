@@ -1,5 +1,4 @@
 wavfiles/
 data/
-data_processing/
 class_based_models/__pycache__
 *.pyc
