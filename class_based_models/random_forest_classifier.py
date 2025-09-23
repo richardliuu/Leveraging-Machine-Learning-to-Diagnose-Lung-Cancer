@@ -1,4 +1,7 @@
 """
+Author: Richard Liu
+
+Description:
 Random Forest Classification for Lung Cancer Stage Classification
 
 This module implements a Random Forest approach for lung cancer stage classification
@@ -22,13 +25,8 @@ Dependencies:
 - joblib: Model serialization and persistence
 - See requirements.txt for all dependencies required
 
-Usage:
-    python random_forest_classifier.py
-
-The script expects a CSV file at 'data/jitter_shimmerlog.csv' containing
-lung cancer data with features, patient IDs, and cancer stage labels.
-
-Author: Adapted from models/randfor.py
+The script expects a CSV file containing lung cancer data with 
+features, patient IDs, and cancer stage labels.
 """
 
 import pandas as pd
@@ -73,7 +71,7 @@ Attributes:
 
 class DataHandling:
     def __init__(self):
-        self.data = "data/jitter_shimmerlog.csv"
+        self.data = "data/train_data"
         
         # Storage for cross-validation results
         self.reports = []
@@ -251,6 +249,7 @@ class RandomForestModel:
         - Interpretability is important (moderate number of trees)
         - Reproducibility is required (fixed random state)
         """
+
         self.model = RandomForestClassifier(
             criterion="log_loss",
             n_estimators=200,
@@ -405,8 +404,6 @@ class RandomForestModel:
             return importance_df
         return None
 
-
-class SHAPAnalyzer:
     """
     SHAP (SHapley Additive exPlanations) analyzer for Random Forest model interpretability.
     
@@ -421,6 +418,7 @@ class SHAPAnalyzer:
         fold_shap_values (list): Stores SHAP values from each fold
         fold_explainers (list): Stores TreeExplainer objects from each fold
     """
+class SHAPAnalyzer:
     
     def __init__(self):
         """
@@ -810,10 +808,6 @@ def pipeline(handler):
     print("\nGenerating cross-fold SHAP summary...")
     shap_summary = shap_analyzer.generate_cross_fold_summary(save_plot=False)
     
-    # Optionally save the final model
-    #joblib.dump(final_model.model, "models/rf2_model.pkl")
-    #print("Random Forest model saved as rf2_model.pkl")
-    
     return handler, shap_analyzer
 
 def main():
@@ -852,7 +846,6 @@ def main():
     
     handler, shap_analyzer = results
     print("\nPipeline completed successfully with SHAP analysis for all folds!")
-
 
 if __name__ == "__main__":
     main()
