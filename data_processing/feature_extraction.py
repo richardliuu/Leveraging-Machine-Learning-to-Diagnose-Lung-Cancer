@@ -10,8 +10,8 @@ from scipy.stats import kurtosis, skew
 # -----------------------
 # Config
 # -----------------------
-AUDIO_DIR = r"C:\Users\richa\OneDrive\Desktop\science2\data\wavfiles\unhealthy\38-"
-OUTPUT_FILE = r"C:\Users\richa\OneDrive\Desktop\science2\data\jitter_shimmerlog.csv"
+AUDIO_DIR = r""
+OUTPUT_FILE = r""
 
 SAMPLE_RATE = 22050
 CHUNK_DURATION = 2.0  
