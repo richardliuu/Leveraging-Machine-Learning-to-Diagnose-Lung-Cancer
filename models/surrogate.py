@@ -24,91 +24,134 @@ poly_ridge_model = Pipeline([
     ('ridge', Ridge(alpha=100, solver='lsqr'))
 ])
 
-# =============================================================================
-# PHASE 2: UMAP & CLUSTERING SETUP
-# =============================================================================
+"""
 
-def load_and_prepare_data(file_path='data/rf_all_test_predictions.csv'):
-    """Step 2.1: Load and Prepare Data for Probability Prediction"""
-    print("="*60)
-    print("PHASE 2.1: Loading and Preparing Data")
-    print("="*60)
-    
-    # Load your completed predictions
-    df_surrogate = pd.read_csv(file_path)
-    
-    # Extract components for probability-based surrogate training
-    exclude_cols = ['true_label', 'predicted_label', 'prob_class_0', 'prob_class_1', 
-                   'patient_id', 'chunk', 'fold', 'test_idx']
-    feature_cols = [col for col in df_surrogate.columns if col not in exclude_cols]
-    
-    X_original = df_surrogate[feature_cols].values  # Original features (no probabilities)
-    rf_probabilities = df_surrogate['prob_class_1'].values  # TARGET: Class 1 probabilities
-    rf_hard_predictions = df_surrogate['predicted_label'].values  # For validation only
-    y_original = df_surrogate['true_label'].values  # For validation only
-    
-    print(f"Data shape: {X_original.shape}")
-    print(f"Features: {len(feature_cols)}")
-    print(f"Samples: {len(X_original)}")
-    print(f"Target range: [{rf_probabilities.min():.3f}, {rf_probabilities.max():.3f}]")
-    print(f"Target mean: {rf_probabilities.mean():.3f} ± {rf_probabilities.std():.3f}")
-    
-    return X_original, rf_probabilities, rf_hard_predictions, y_original, feature_cols
+"""
+class LoadData:
+    def __init__():
+        """
+        Initialize variables
+        """
 
-def generate_umap_coordinates(X_original, rf_probabilities, y_original):
-    """Step 2.2: Generate UMAP Coordinates"""
-    print("\n" + "="*60)
-    print("PHASE 2.2: Generating UMAP Coordinates")
-    print("="*60)
-    
-    # Apply UMAP to create 2D representation
-    umap_model = umap.UMAP(
-        n_neighbors=15,
-        min_dist=0.1,
-        n_components=2,
-        random_state=42,
-        metric='euclidean'
-    )
-    
-    print("Fitting UMAP...")
-    umap_coords = umap_model.fit_transform(X_original)
-    print("UMAP fitting completed!")
-    
-    # Visualize probability distribution in UMAP space
-    plt.figure(figsize=(15, 5))
-    
-    # Plot 1: Original cancer stages
-    plt.subplot(1, 3, 1)
-    scatter1 = plt.scatter(umap_coords[:, 0], umap_coords[:, 1], 
-                          c=y_original, cmap='RdYlBu', alpha=0.6, s=10)
-    plt.colorbar(scatter1, label='Original Cancer Stage')
-    plt.xlabel('UMAP 1')
-    plt.ylabel('UMAP 2')
-    plt.title('Original Cancer Stages')
-    
-    # Plot 2: RF probability predictions (our target)
-    plt.subplot(1, 3, 2)
-    scatter2 = plt.scatter(umap_coords[:, 0], umap_coords[:, 1], 
-                          c=rf_probabilities, cmap='RdYlBu', alpha=0.6, s=10)
-    plt.colorbar(scatter2, label='RF Class 1 Probability')
-    plt.xlabel('UMAP 1')
-    plt.ylabel('UMAP 2')
-    plt.title('RF Probability Predictions (Target)')
-    
-    # Plot 3: Probability histogram
-    plt.subplot(1, 3, 3)
-    plt.hist(rf_probabilities, bins=50, alpha=0.7, edgecolor='black')
-    plt.xlabel('RF Class 1 Probability')
-    plt.ylabel('Frequency')
-    plt.title('Distribution of Target Probabilities')
-    plt.axvline(rf_probabilities.mean(), color='red', linestyle='--', 
-                label=f'Mean: {rf_probabilities.mean():.3f}')
-    plt.legend()
-    
-    plt.tight_layout()
-    plt.show()
-    
-    return umap_model, umap_coords
+
+    def load_and_prepare_data(file_path='data/rf_all_test_predictions.csv'):
+        """
+        This function loads and prepares the data for UMAP clustering.
+
+        The function has the parameter file_path to determine where the 
+        data is coming from for UMAP handling.
+        """
+
+        print("="*60)
+        print("Loading and Preparing Data")
+        print("="*60)
+        
+        # Load your completed predictions
+        df_surrogate = pd.read_csv(file_path)
+        
+        # Extract components for probability-based surrogate training
+        exclude_cols = ['true_label', 'predicted_label', 'prob_class_0', 'prob_class_1', 
+                    'patient_id', 'chunk', 'fold', 'test_idx']
+        feature_cols = [col for col in df_surrogate.columns if col not in exclude_cols]
+        
+        X_original = df_surrogate[feature_cols].values  # Original features (no probabilities)
+        rf_probabilities = df_surrogate['prob_class_1'].values  # TARGET: Class 1 probabilities
+        rf_hard_predictions = df_surrogate['predicted_label'].values  # For validation only
+        y_original = df_surrogate['true_label'].values  # For validation only
+        
+        print(f"Data shape: {X_original.shape}")
+        print(f"Features: {len(feature_cols)}")
+        print(f"Samples: {len(X_original)}")
+        print(f"Target range: [{rf_probabilities.min():.3f}, {rf_probabilities.max():.3f}]")
+        print(f"Target mean: {rf_probabilities.mean():.3f} ± {rf_probabilities.std():.3f}")
+        
+        return X_original, rf_probabilities, rf_hard_predictions, y_original, feature_cols
+
+
+"""
+
+"""
+class Cluster:
+    def __init__(self):
+        """
+        Initialize variables
+        """
+
+        self.umap_model = None
+        self.X_original = None
+        self.rf_probabilities = None
+        self.y_original = None
+
+    def generate_umap(self, X_original, rf_probabilities, y_original):
+        """
+        This function generates the UMAP projection and takes 
+        in the parameters self.X_original, self.rf_probabilites and 
+        self.y_original
+        """
+        print("\n" + "="*60)
+        print("PHASE 2.2: Generating UMAP Coordinates")
+        print("="*60)
+        
+        # Apply UMAP to create 2D representation
+        self.umap_model = umap.UMAP(
+            n_neighbors=15,
+            min_dist=0.1,
+            n_components=2,
+            random_state=42,
+            metric='euclidean'
+        )
+        
+        print("Fitting UMAP...")
+        self.umap_coords = self.umap_model.fit_transform(self.X_original)
+        print("UMAP fitting completed")
+
+        return self.umap_coords
+
+    def visualize_umap(self):
+        """
+        This function visualizes the UMAP projection using 3 plots generated
+        through matplotlib. 
+
+        Plot 1 displays the mapping of the original data set (cancer stages)
+        Plot 2 displays the predictions of the random forest by probabilities
+        Plot 3 displays a probability histogram to graphically view the distribution
+        """
+        
+        # Visualize probability distribution in UMAP space
+        plt.figure(figsize=(15, 5))
+        
+        # Plot 1: Original cancer stages
+        plt.subplot(1, 3, 1)
+        scatter1 = plt.scatter(self.umap_coords[:, 0], self.umap_coords[:, 1], 
+                            c=self.y_original, cmap='RdYlBu', alpha=0.6, s=10)
+        plt.colorbar(scatter1, label='Original Cancer Stage')
+        plt.xlabel('UMAP 1')
+        plt.ylabel('UMAP 2')
+        plt.title('Original Cancer Stages')
+        
+        # Plot 2: RF probability predictions (our target)
+        plt.subplot(1, 3, 2)
+        scatter2 = plt.scatter(self.umap_coords[:, 0], self.umap_coords[:, 1], 
+                            c=self.rf_probabilities, cmap='RdYlBu', alpha=0.6, s=10)
+        plt.colorbar(scatter2, label='RF Class 1 Probability')
+        plt.xlabel('UMAP 1')
+        plt.ylabel('UMAP 2')
+        plt.title('RF Probability Predictions (Target)')
+        
+        # Plot 3: Probability histogram
+        plt.subplot(1, 3, 3)
+        plt.hist(self.rf_probabilities, bins=50, alpha=0.7, edgecolor='black')
+        plt.xlabel('RF Class 1 Probability')
+        plt.ylabel('Frequency')
+        plt.title('Distribution of Target Probabilities')
+        plt.axvline(self.rf_probabilities.mean(), color='red', linestyle='--', 
+                    label=f'Mean: {self.rf_probabilities.mean():.3f}')
+        plt.legend()
+        
+        plt.tight_layout()
+        plt.show()
+        
+        return self.umap_model, self.umap_coords
 
 def apply_clustering(umap_coords, rf_probabilities):
     """Step 2.3: Apply Clustering"""
@@ -180,60 +223,61 @@ def apply_clustering(umap_coords, rf_probabilities):
     
     return clustering, cluster_labels, valid_clusters
 
-# =============================================================================
-# PHASE 3: CLUSTER ANALYSIS & MODEL SELECTION
-# =============================================================================
 
-def analyze_probability_clusters(cluster_labels, rf_probabilities, y_original, valid_clusters):
-    """Step 3.1: Analyze Cluster Probability Characteristics"""
-    print("\n" + "="*60)
-    print("PHASE 3.1: Analyzing Cluster Probability Characteristics")
-    print("="*60)
-    
-    cluster_analysis = {}
-    
-    for cluster_id in valid_clusters:
-        mask = cluster_labels == cluster_id
-        cluster_size = np.sum(mask)
+class ClusterAnalysis:
+    def __init__(self):
+        self.cluster_analysis = {}
+        self.prob_stats = {}
+
+
+    def analyze_probability_clusters(self, cluster_labels, rf_probabilities, y_original, valid_clusters):
+        """Step 3.1: Analyze Cluster Probability Characteristics"""
+        print("\n" + "="*60)
+        print("PHASE 3.1: Analyzing Cluster Probability Characteristics")
+        print("="*60)
         
-        # Analyze probability distribution
-        cluster_probs = rf_probabilities[mask]
-        cluster_original = y_original[mask]
+        for cluster_id in valid_clusters:
+            mask = cluster_labels == cluster_id
+            cluster_size = np.sum(mask)
+            
+            # Analyze probability distribution
+            cluster_probs = rf_probabilities[mask]
+            cluster_original = y_original[mask]
+            
+            self.prob_stats = {
+                'mean': cluster_probs.mean(),
+                'std': cluster_probs.std(),
+                'min': cluster_probs.min(),
+                'max': cluster_probs.max(),
+                'q25': np.percentile(cluster_probs, 25),
+                'q75': np.percentile(cluster_probs, 75)
+            }
+            
+            # Classify cluster type based on probability distribution
+            if self.prob_stats['mean'] > 0.8:
+                cluster_type = 'high_confidence_positive'
+            elif self.prob_stats['mean'] < 0.2:
+                cluster_type = 'high_confidence_negative'  
+            elif self.prob_stats['std'] < 0.1:
+                cluster_type = 'homogeneous_uncertain'
+            else:
+                cluster_type = 'mixed_heterogeneous'
+            
+            self.cluster_analysis[cluster_id] = {
+                'size': cluster_size,
+                'prob_stats': self.prob_stats,
+                'cluster_type': cluster_type,
+                'original_stages': np.bincount(cluster_original.astype(int))
+            }
+            
+            print(f"\nCluster {cluster_id} ({cluster_type}):")
+            print(f"  Size: {cluster_size}")
+            print(f"  RF Probability: {self.prob_stats['mean']:.3f} ± {self.prob_stats['std']:.3f}")
+            print(f"  Range: [{self.prob_stats['min']:.3f}, {self.prob_stats['max']:.3f}]")
+            print(f"  IQR: [{self.prob_stats['q25']:.3f}, {self.prob_stats['q75']:.3f}]")
+            print(f"  Original stages distribution: {np.bincount(cluster_original.astype(int))}")
         
-        prob_stats = {
-            'mean': cluster_probs.mean(),
-            'std': cluster_probs.std(),
-            'min': cluster_probs.min(),
-            'max': cluster_probs.max(),
-            'q25': np.percentile(cluster_probs, 25),
-            'q75': np.percentile(cluster_probs, 75)
-        }
-        
-        # Classify cluster type based on probability distribution
-        if prob_stats['mean'] > 0.8:
-            cluster_type = 'high_confidence_positive'
-        elif prob_stats['mean'] < 0.2:
-            cluster_type = 'high_confidence_negative'  
-        elif prob_stats['std'] < 0.1:
-            cluster_type = 'homogeneous_uncertain'
-        else:
-            cluster_type = 'mixed_heterogeneous'
-        
-        cluster_analysis[cluster_id] = {
-            'size': cluster_size,
-            'prob_stats': prob_stats,
-            'cluster_type': cluster_type,
-            'original_stages': np.bincount(cluster_original.astype(int))
-        }
-        
-        print(f"\nCluster {cluster_id} ({cluster_type}):")
-        print(f"  Size: {cluster_size}")
-        print(f"  RF Probability: {prob_stats['mean']:.3f} ± {prob_stats['std']:.3f}")
-        print(f"  Range: [{prob_stats['min']:.3f}, {prob_stats['max']:.3f}]")
-        print(f"  IQR: [{prob_stats['q25']:.3f}, {prob_stats['q75']:.3f}]")
-        print(f"  Original stages distribution: {np.bincount(cluster_original.astype(int))}")
-    
-    return cluster_analysis
+        return self.cluster_analysis
 
 def select_probability_surrogate_models(cluster_analysis, valid_clusters):
     """Step 3.2: Select Regression Models for Probability Prediction with Merged Clusters"""
