@@ -17,14 +17,6 @@ Key Features:
 - Reproducible results with fixed random seeds
 - Model persistence with joblib
 
-Dependencies:
-- pandas: Data manipulation and analysis
-- numpy: Numerical computations
-- scikit-learn: Machine learning utilities and Random Forest implementation
-- matplotlib: Plotting and visualization
-- joblib: Model serialization and persistence
-- See requirements.txt for all dependencies required
-
 The script expects a CSV file containing lung cancer data with 
 features, patient IDs, and cancer stage labels.
 """
