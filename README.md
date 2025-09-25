@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling and a Most Representative Tree**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
+This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
 
 ### Key Innovation: Random Forest with Decision Tree Surrogate Framework
 
@@ -19,7 +19,7 @@ Lung cancer can cause subtle changes in voice patterns due to effects on the res
 - **Early Detection**: Potential to identify subtle vocal changes before clinical symptoms
 - **Cost-Effective**: Minimal infrastructure requirements for widespread deployment
 
-## Novel Interpretability Approach
+## Interpretability Approach
 
 ### The Challenge
 Traditional deep learning models for medical diagnosis are "black boxes" - highly accurate but difficult for clinicians to understand and trust.
@@ -29,7 +29,6 @@ We implemented an **interpretable framework** where:
 
 1. **Random Forest Model** (`models/randfor.py`): Trained on voice biomarkers for optimal accuracy using ensemble learning
 2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate Random Forest predictions using interpretable rules
-3. **Clinical Translation**: Provides explainable decision pathways for medical professionals
 
 ## Technical Architecture
 
@@ -105,7 +104,7 @@ repository/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd science2
+   cd <folder name>
    ```
 
 2. **Install dependencies**
@@ -134,11 +133,9 @@ repository/
 
 ### Rigorous Validation
 - **Patient-Grouped Cross-Validation**: Prevents data leakage by ensuring no patient appears in both training and testing sets
-- **Data Integrity Checks**: Comprehensive validation for duplicates and label consistency
 - **Stratified Sampling**: Maintains class distribution across all splits
 
 ### Class Imbalance Handling
-- **Balanced Class Weights**: Random Forest automatically handles class imbalance through balanced weighting
 - **Stratified Cross-Validation**: Maintains class distribution across all splits
 - **Balanced Metrics**: Focus on macro-averaged metrics for fair evaluation
 
@@ -159,7 +156,6 @@ repository/
 
 ### Cross-Validation Strategy
 - **4-Fold GroupKFold**: Ensures robust performance estimation
-- **Patient-Level Splitting**: Prevents optimistic bias from patient overlap
 - **Stratified Validation**: Maintains class distribution integrity
 
 ## Clinical Interpretability
@@ -170,13 +166,6 @@ repository/
 2. **Decision Tree Rules**: Provides explicit thresholds and decision pathways from surrogate model
 3. **Surrogate Validation**: Ensures interpretable model accurately represents Random Forest behavior through fidelity metrics
 4. **Clinical Correlation**: Maps AI insights to medical knowledge and expectations
-
-### Benefits for Healthcare Professionals
-
-- **Transparency**: Clear understanding of why predictions were made
-- **Validation**: Ability to verify AI decisions against medical expertise
-- **Trust**: Increased confidence in AI-assisted diagnosis
-- **Education**: Insights into voice-disease relationships for research
 
 ## Limitations and Disclaimers
 
