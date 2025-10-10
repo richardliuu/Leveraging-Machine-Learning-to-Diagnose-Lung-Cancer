@@ -433,6 +433,11 @@ class UMAPProjection:
         """
         
         """
+    def results(self):
+        folder = r"results/"
+
+        folder.append()
+
 
 class InterpretPredictions(SurrogateModel):
     """
@@ -446,6 +451,8 @@ class InterpretPredictions(SurrogateModel):
     def visualize_model(self):
         self.tree = self.model.export_graphviz()
         print(self.tree)
+
+
 
 # Call classes and run pipeline
 if __name__ == "__main__":
