@@ -243,49 +243,8 @@ class TrainModel(SurrogateModel):
         """
         self.predictions = self.model.predict(X)
         return self.predictions
-    
-class CrossValidation(SurrogateModel, TrainModel):
-    """
-    CrossValidation class for performing cross-validation on surrogate models.
-    This class inherits from SurrogateModel and TrainModel, and is responsible for
-    orchestrating the cross-validation process for model evaluation.
 
-    Methods
-    -------
-    __init__():
-        Initializes the CrossValidation instance and its parent classes.
-    pipeline():
-        Executes the cross-validation process, splitting data into folds,
-        training and validating the model on each fold, and aggregating results.
-    Attributes
-    ----------
-    (Inherited from SurrogateModel and TrainModel)
-    """
-    def __init__(self):
-        """ Instantiate variables"""
-        super().__init__()
-        self.train_idx = 
-        self.text_idx = 
-        self.performance_metrics = None
-        self.groupkfold = 4
-        self.X = None
-        self.y = None
-        
-    def pipeline(self):
-        """
-        REWRITE DOC AFTER COMPLETION
-
-        Executes the main processing pipeline for the class.
-        Iterates overdata, performing necessary operations
-        at each stage. The specific actions and data processed within the pipeline should be
-        implemented in the method body.
-        """
-        
-        for fold, (self.train_idx, self.test_idx) in enumerate(self.groupkfold.split(), ):
-            print(f"===== Fold {fold} =====")
-            self.model.train()
-
-class EvaluateTraining(SurrogateModel, TrainModel, CrossValidation):
+class EvaluateTraining(SurrogateModel, TrainModel):
     """
     EvaluateTraining is a class that inherits from SurrogateModel and 
     TrainModel to provide evaluation capabilities for regression models.
@@ -333,9 +292,10 @@ class EvaluateTraining(SurrogateModel, TrainModel, CrossValidation):
         
         """
         
-        self.performance_metrics["predicted_label"] = self.y_pred
-        self.performance_metrics["R2"] = 
-        self.performance_metrics.to_csv("data/surrogate_results.csv")
+        self.metrics.to_csv("results/surrogate_cross_validation_results")
+
+        return self.metrics
+
     
 class ModelReport(TrainModel):
     """
@@ -385,6 +345,47 @@ class ModelReport(TrainModel):
         plt.tight_layout()
         plt.show()
 
+class CrossValidation(SurrogateModel, TrainModel):
+    """
+    CrossValidation class for performing cross-validation on surrogate models.
+    This class inherits from SurrogateModel and TrainModel, and is responsible for
+    orchestrating the cross-validation process for model evaluation.
+
+    Methods
+    -------
+    __init__():
+        Initializes the CrossValidation instance and its parent classes.
+    pipeline():
+        Executes the cross-validation process, splitting data into folds,
+        training and validating the model on each fold, and aggregating results.
+    Attributes
+    ----------
+    (Inherited from SurrogateModel and TrainModel)
+    """
+    def __init__(self):
+        """ Instantiate variables"""
+        super().__init__()
+        self.train_idx = 
+        self.text_idx = 
+        self.performance_metrics = None
+        self.groupkfold = 4
+        self.X = None
+        self.y = None
+        
+    def pipeline(self):
+        """
+        REWRITE DOC AFTER COMPLETION
+
+        Executes the main processing pipeline for the class.
+        Iterates overdata, performing necessary operations
+        at each stage. The specific actions and data processed within the pipeline should be
+        implemented in the method body.
+        """
+        
+        for fold, (self.train_idx, self.test_idx) in enumerate(self.groupkfold.split(), ):
+            print(f"===== Fold {fold} =====")
+            self.model.train()
+
 class UMAPProjection:
     """
     A class for creating and managing UMAP projections to provide
@@ -404,6 +405,9 @@ class UMAPProjection:
         self.umap_coords = None
         self.X_original = None
         self.y_original = None
+        self.projection = None
+
+        self.folder = r"results/"
 
     def generate_umap(self):
         """
@@ -431,18 +435,68 @@ class UMAPProjection:
     
     def visualize_umap(self):
         """
-        
+        Visualizes the data using UMAP (Uniform Manifold Approximation and Projection) for dimensionality reduction.
+        This method projects high-dimensional data into a lower-dimensional space (typically 2D or 3D)
+        using UMAP and displays the resulting visualization using matplotlib.
         """
+        
+        # Create multiple plots 
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        
+        # Plot 1: Clusters
+        scatter1 = axes[0].scatter(self.umap_coords[:, 0], 
+                                   self.umap_coords[:, 1], 
+                                   cmap='tab10', 
+                                   alpha=0.6, 
+                                   s=10)
+        
+        # 
+        axes[0].set_title('Cluster Assignments')
+        axes[0].set_xlabel('UMAP 1')
+        axes[0].set_ylabel('UMAP 2')
+        plt.colorbar(scatter1, ax=axes[0], label='Cluster Name')
+        
+        # Plot 2: Target values
+        scatter2 = axes[1].scatter(self.umap_coords[:, 0], self.umap_coords[:, 1],
+                                   c=self.y, cmap='RdYlBu', alpha=0.6, s=10)
+        axes[1].set_title('Target Values')
+        axes[1].set_xlabel('UMAP 1')
+        axes[1].set_ylabel('UMAP 2')
+        plt.colorbar(scatter2, ax=axes[1], label='RF Probability')
+        
+        # Plot 3: Target distribution
+        axes[2].hist(y, bins=50, alpha=0.7, edgecolor='black')
+        axes[2].set_xlabel('RF Probability')
+        axes[2].set_ylabel('Frequency')
+        axes[2].set_title('Target Distribution')
+        axes[2].axvline(y.mean(), color='red', linestyle='--',
+                       label=f'Mean: {self.y.mean():.3f}')
+        axes[2].legend()
+        
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        plt.show()
+
     def results(self):
-        folder = r"results/"
+        """
+        Append all results to csv or png to provide a repository of visuals 
+        """
+        self.folder.append(self.projection)
 
-        folder.append()
-
+        return self.folder
 
 class InterpretPredictions(SurrogateModel):
     """
-    
+    InterpretPredictions is a subclass of SurrogateModel designed to provide interpretability for model predictions.
+    It includes methods to visualize the underlying surrogate model, typically a decision tree, by exporting its structure.
+    Attributes:
+        tree (str or None): Stores the exported visualization of the model, typically in DOT format.
+    Methods:
+        __init__(): Initializes the InterpretPredictions instance and its attributes.
+        visualize_model(): Exports and prints the visualization of the surrogate model.
     """
+
     def __init__(self):
         """ Instantiate variables """
         super().__init__()
@@ -452,8 +506,30 @@ class InterpretPredictions(SurrogateModel):
         self.tree = self.model.export_graphviz()
         print(self.tree)
 
+class RunPipeline:
+    """
+    RunPipeline orchestrates the execution of a machine learning workflow, including model training, reporting, and interpretation.
+    Attributes:
+        model_train (TrainModel): Handles the training of the model.
+        model_report (ModelReport): Generates reports based on the trained model.
+        model_interpret (InterpretPredictions): Interprets the predictions made by the model.
+    Methods:
+        pipeline():
+            Executes each stage of the pipeline in sequence: training, reporting, and interpretation.
+    """
+    
+    def __init__(self):
+        self.model_train = TrainModel()
+        self.model_report = ModelReport()
+        self.model_interpret = InterpretPredictions()
 
+    def pipeline(self):
+        """
+        
+        """
+        
+        # Insert each stage of the pipeline
 
 # Call classes and run pipeline
 if __name__ == "__main__":
-    pass
+    RunPipeline.pipeline()
