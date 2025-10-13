@@ -514,7 +514,15 @@ class RunPipeline:
 
     def pipeline():
         """
-        
+        Executes the main data processing and modeling pipeline.
+        Steps performed:
+            1. Loads the dataset using LoadData.
+            2. Clusters the data using ClusterData.
+            3. Trains the model and performs cross-validation via CrossValidation.
+            4. Reports model performance using ModelReport.
+            5. Generates and visualizes UMAP projections with UMAPProjection.
+        Returns:
+            None
         """
         
         # Load Data
