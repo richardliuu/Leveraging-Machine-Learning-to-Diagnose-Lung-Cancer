@@ -4,10 +4,8 @@ Description:
 
 This program contains a surrogate model for our random forest model to provide insight
 into model behaviours. We analyze specific clusters of the model 
-
-pull from README.md
-
 """
+
 
 """
 Pipeline:
@@ -346,48 +344,6 @@ class ModelReport(SurrogateModel):
         plt.tight_layout()
         plt.show()
 
-class CrossValidation(SurrogateModel):
-    """
-    CrossValidation class for performing cross-validation on surrogate models.
-    Attributes:
-        train_idx (array-like): Indices for training data in the current fold.
-        test_idx (array-like): Indices for test data in the current fold.
-        performance_metrics (dict or None): Stores performance metrics for each fold.
-        groupkfold (int): Number of folds for group-based cross-validation.
-        X (array-like): Feature matrix.
-        y (array-like): Target vector.
-    Methods:
-        __init__():
-            Initializes the CrossValidation instance and its attributes.
-        pipeline():
-            Executes the main cross-validation pipeline. Iterates over folds,
-            splits data, trains the model, and evaluates performance.
-    """
-
-    def __init__(self):
-        """ Instantiate variables"""
-        super().__init__()
-        self.train_idx = None
-        self.text_idx = None
-        self.performance_metrics = None
-        self.groupkfold = 4
-        self.X = None
-        self.y = None
-        
-    def pipeline(self):
-        """
-        REWRITE DOC AFTER COMPLETION
-
-        Executes the main processing pipeline for the class.
-        Iterates overdata, performing necessary operations
-        at each stage. The specific actions and data processed within the pipeline should be
-        implemented in the method body.
-        """
-        
-        for fold, (self.train_idx, self.test_idx) in enumerate(self.groupkfold.split(), ):
-            print(f"===== Fold {fold} =====")
-            self.model.train()
-
 class UMAPProjection:
     """
     A class for creating and managing UMAP projections to provide
@@ -490,6 +446,67 @@ class InterpretPredictions(SurrogateModel):
         self.tree = self.model.export_graphviz()
         print(self.tree)
 
+class CrossValidation(SurrogateModel):
+    """
+    CrossValidation class for performing cross-validation on surrogate models.
+    Attributes:
+        train_idx (array-like): Indices for training data in the current fold.
+        test_idx (array-like): Indices for test data in the current fold.
+        performance_metrics (dict or None): Stores performance metrics for each fold.
+        groupkfold (int): Number of folds for group-based cross-validation.
+        X (array-like): Feature matrix.
+        y (array-like): Target vector.
+    Methods:
+        __init__():
+            Initializes the CrossValidation instance and its attributes.
+        pipeline():
+            Executes the main cross-validation pipeline. Iterates over folds,
+            splits data, trains the model, and evaluates performance.
+    """
+
+    def __init__(self):
+        """ Instantiate variables"""
+        super().__init__()
+        self.train_idx = None
+        self.text_idx = None
+        self.performance_metrics = None
+        self.groupkfold = 4
+        self.X = None
+        self.y = None
+
+    def pipeline(self):
+        """
+        REWRITE DOC AFTER COMPLETION
+
+        Executes the main processing pipeline for the class.
+        Iterates overdata, performing necessary operations
+        at each stage. The specific actions and data processed within the pipeline should be
+        implemented in the method body.
+        """
+        
+        for fold, (self.train_idx, self.test_idx) in enumerate(self.groupkfold.split(X, y, groups), ):
+            print(f"===== Fold {fold} =====")
+            self.model.train()
+            
+            # Split data for current fold
+            handler.split(df, train_idx, test_idx)
+            
+            print(f"Train: {len(handler.train_patients)} patients, {len(handler.X_train)} samples")
+            print(f"Test:  {len(handler.test_patients)} patients, {len(handler.X_test)} samples")
+            
+            model.train(handler.X_train, handler.y_train, handler.feature_cols)
+            
+            # Evaluate model performance with overfitting check
+            report, c_matrix, auc, train_accuracy, overfitting_gap = model.evaluate(
+                handler.X_test, handler.y_test, handler.X_train, handler.y_train
+            )
+
+
+            """
+            maybe static method to append results?
+            """
+            CrossValidation.append_result()
+
 class RunPipeline:
     """
     RunPipeline orchestrates the end-to-end machine learning workflow, including data loading, clustering, model training, performance reporting, and visualization.
@@ -536,6 +553,7 @@ class RunPipeline:
 
         # Report Model Performance 
         ModelReport.graph()
+        InterpretPredictions.visualize_model()
 
         # UMAP Projections/Visualizations
         UMAPProjection.generate_umap()
