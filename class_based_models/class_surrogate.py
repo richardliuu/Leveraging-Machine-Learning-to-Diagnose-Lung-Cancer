@@ -1,9 +1,89 @@
 """
 Author: Richard Liu
-Description:
+Date: October, 2025 
+Description: 
 
-This program contains a surrogate model for our random forest model to provide insight
-into model behaviours. We analyze specific clusters of the model 
+High-level module docstring
+---------------------------
+This module provides a small framework for training and analyzing simple surrogate models
+that approximate the behavior of a pre-trained Random Forest classifier. The surrogate
+models are intended to improve interpretability by modeling the Random Forest's predicted
+probabilities (for the positive class) on selected subsets of the data that are grouped
+by the model's confidence.
+Primary responsibilities:
+- Load predictions and features produced by an existing Random Forest pipeline.
+- Partition samples into confidence-based clusters (e.g. confident / mixed / unconfident).
+- Train lightweight surrogate regressors (e.g. decision tree, linear models) to fit the
+    Random Forest's predicted probabilities on those clusters.
+- Evaluate surrogate performance using standard regression metrics and cross-validation.
+- Produce simple visualizations including UMAP embeddings and model reports.
+- Export artifacts such as trained surrogates, evaluation results, and plot images.
+Intended workflow
+-----------------
+1. Load a CSV containing features, the Random Forest's predicted probabilities
+     (prob_class_0, prob_class_1), the hard predicted label, and any metadata (patient_id,
+     fold, chunk, test_idx, ...).
+2. Exclude columns that would leak target information (true_label, predicted_label,
+     prob_class_0/1) from the feature set and extract:
+         - X: features used by surrogates
+         - rf_probs: Random Forest probability for class 1 (regression target)
+         - rf_hard_preds: Random Forest's hard label predictions (for validation/analysis)
+         - y_original: True labels (for additional validation / analysis)
+3. Partition the dataset into clusters based on rf_probs (e.g., >0.7 confident,
+     0.4-0.7 mixed, <0.4 unconfident).
+4. For each cluster (or for the full dataset), initialize and train a surrogate model.
+     Typical surrogates include DecisionTreeRegressor (for simple rule-based explanations),
+     Lasso/ElasticNet (for sparse linear explanations), or polynomial regressors.
+5. Evaluate surrogates using MAE, MSE, RMSE and R²; optionally perform cross-validation
+     and export fold-level metrics.
+6. Produce UMAP projections of the original feature matrix and overlay cluster assignments
+     or surrogate residuals for visualization.
+7. Provide utilities for exporting a decision tree (DOT) visualization and saving results.
+Core classes and responsibilities
+---------------------------------
+LoadData
+        - Loads and preprocesses the CSV file containing Random Forest outputs.
+        - Excludes leakage columns and returns feature matrix X, rf_probs (target), hard
+            predictions, true labels, and feature column names.
+        - Intended to support row/ index-based train/test slicing passed in from an outer
+            cross-validation controller.
+ClusterData
+        - Splits the dataset into confidence-based clusters (confident, mixed, unconfident)
+            according to configurable probability thresholds.
+        - Stores cluster-specific DataFrames or views that include both features and RF
+            predictions to enable per-cluster surrogate training.
+SurrogateModel
+        - Lightweight wrapper around sklearn regressors to unify initialization, training,
+            and prediction APIs used by downstream utilities.
+        - Example usage: initialize_model; train(X, y); predict(X).
+EvaluateTraining (inherits SurrogateModel)
+        - Computes regression evaluation metrics (MAE, MSE, RMSE, R²) comparing surrogate
+            predictions to RF probabilities or true labels as required.
+        - Provides a small API to export metrics (e.g., to CSV) for cross-validation reporting.
+ModelReport (inherits SurrogateModel)
+        - Utilities for plotting and summarizing surrogate performance across folds or clusters.
+        - Minimal plotting scaffold is included to surface foldwise R² (can be extended).
+UMAPProjection
+        - Produces low-dimensional UMAP embeddings of feature data for visualization.
+        - Stores fitted UMAP model and 2D coordinates to support plotting and exporting figures.
+        - Intended to accept X (feature matrix) and optional labels (cluster ids, residuals)
+            to color points in visualizations.
+InterpretPredictions (inherits SurrogateModel)
+        - Helper for exporting interpretable representations of surrogates (e.g., decision tree
+            DOT export). Designed to wrap sklearn.tree export utilities and to orchestrate saving
+            or printing model structure.
+CrossValidation (inherits SurrogateModel)
+        - High-level driver that should orchestrate group-aware cross-validation (e.g.,
+            GroupKFold) over patients or other grouping unit.
+        - For each fold: performs train/test splitting (via LoadData), trains a surrogate,
+            evaluates it, and collects fold metrics. Intended extension point for logging and
+            artifact export.
+RunPipeline
+        - Top-level orchestration that wires together LoadData, ClusterData, CrossValidation,
+            ModelReport, InterpretPredictions, and UMAPProjection to run the complete pipeline
+            from raw CSV to final outputs (models, metrics, and plots).
+        - Meant as a convenience wrapper for reproducible experiments; can be adapted to
+            run per-cluster surrogate experiments.
 """
 
 
@@ -125,14 +205,14 @@ class ClusterData:
     This class module clusters data based on the model's 
     confidence 
     """
-    def __init__(self):
+    def __init__(self, confident_threshold=0.7, unconfident_threshold=0.4):
         """ Instantiate variables """
         super().__init__(LoadData)
-        self.confident = pd.DataFrame()
-        self.mixed = pd.DataFrame()
-        self.unconfident = pd.DataFrame()
+        self.confident_threshold = confident_threshold
+        self.unconfident_threshold = unconfident_threshold
+        self.clusters = {}
 
-    def cluster(self):
+    def cluster(self, X, rf_probs, y_original = None):
         """
         This function clusters the data and creates seperate datasets. 
         """
@@ -141,17 +221,38 @@ class ClusterData:
         NOTE ALSO NEED TO APPEND CORRESPONDING X FEATURES 
         """
 
-        if self.rf_probs > 0.7:
-            self.confident.append(self.rf_probs)
-            self.confident.append()
-        elif self.rf_probs > 0.4 and self.rf_probs < 0.7:
-            self.mixed.append(self.rf_probs)
-            self.mixed.append()
-        elif self.rf_probs < 0.4:
-            self.unconfident.append(self.rf_probs)
-            self.unconfident.append()
-        else:
-            pass
+        """
+        Create the clusters as dictionaries and seperate them 
+        in the dictionary cluster
+        """
+        self.clusters = {
+            "confident": {
+                "X": ,
+                "y": , 
+                "y_original": ,
+                "indices": 
+            },
+            "mixed": {
+                "X": ,
+                "y": , 
+                "y_original": ,
+                "indices": 
+
+            },
+            "unconfident": {
+                "X": ,
+                "y": , 
+                "y_original": ,
+                "indices": 
+
+            },
+        }
+
+        print(f"\nCluster sizes:")
+        for name, data in self.clusters.items():
+            print(f" {name}: {len(data["X"])} samples")
+
+        return self.clusters
   
 class SurrogateModel:
     """
@@ -168,9 +269,6 @@ class SurrogateModel:
     def __init__(self):
         """ Instantiate variables """
         self.model = None
-        self.model_params = None 
-        self.max_depth = None
-        self.performance_metrics = pd.DataFrame
         self.predictions = None
         self.X = None
         self.y = None
@@ -234,8 +332,8 @@ class SurrogateModel:
 
         Returns:
             predictions: Predicted values corresponding to the input data.
-
         """
+
         self.predictions = self.model.predict(X)
         return self.predictions
 
@@ -285,15 +383,21 @@ class EvaluateTraining(SurrogateModel):
 
         return self.metrics
     
-    def cross_validation_report(self):
+    def save_metrics(self, metrics_list, save_path = r"results/surrogate_training_results.csv")
         """
         
+        NOTE DOCUMENTATION
+
         """
-        
-        self.metrics.to_csv("results/surrogate_cross_validation_results")
 
-        return self.metrics
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
 
+        df_metrics = pd.DataFrame(metrics_list)
+        df_metrics.to_csv(save_path, index=False)
+
+        print(f"Metrics saved to {save_path}")
+
+        return df_metrics
     
 class ModelReport(SurrogateModel):
     """
@@ -308,40 +412,48 @@ class ModelReport(SurrogateModel):
         performance metrics across different folds. The first subplot shows the R2 Score 
         across folds, while the other two subplots are placeholders for additional metrics.
     """
-    
         
     def __init__(self):
         super().__init__()
-        # Pass in values from the other modules into graph()
+        self.results_df = None
 
-        pass
-
-    def graph(self):
+    def plot_performance(self, metrics_list, save_path = r"results/"):
         """ 
         Graph the performance of the model 
         """
+
+        df = pd.DataFrame(metrics_list)
         
-        plt.figure(figsize=(15, 5))
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
-        plt.subplot(1, 3, 1)
-        plt.plot()
-        plt.xlabel("Fold")
-        plt.ylabel("R2 Score")
-        plt.title("Model Performance by R2 Score across Folds")
+        # R2 Score
+        axes[0].plot(df["fold"], df["r2"], marker="o", linewidth=2, color="orange")
+        axes[0].set_xlabel("Fold")
+        axes[0].set_ylabel("R2 Score")
+        axes[0].set_title("R2 Score Across Folds")
+        axes[0].grid(True, alpha=0.3)
 
-        plt.subplot(1, 3, 2)
-        plt.plot()
-        plt.xlabel("")
-        plt.ylabel("")
-        plt.title("")
+        # Root Meant Squared Error
+        axes[1].plot(df["fold"], df["rmse"], marker="s", linewidth=2, color="green")
+        axes[1].set_xlabel("Fold")
+        axes[1].set_ylabel("RMSE")
+        axes[1].set_title("RMSE Across Folds")
+        axes[1].grid(True, alpha=0.3)
 
-        plt.subplot(1, 3, 3)
-        plt.plot()
-        plt.xlabel("")
-        plt.ylabel("")
-        plt.title("")
+        # Mean Absolute Error
+        axes[2].plot(df["fold"], df["mae"], marker="^", linewidth=2, color="blue")
+        axes[2].set_xlabel("Fold")
+        axes[2].set_ylabel("MAE")
+        axes[2].set_title("MAE Across Folds")
+        axes[2].grid(True, alpha=0.3)
 
-        plt.tight_layout()
+        # Save the results 
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches = 'tight')
+
+        # Print path
+        print(f"Performance plot saved to {save_path}")
+
         plt.show()
 
 class UMAPProjection:
@@ -363,9 +475,6 @@ class UMAPProjection:
         self.umap_coords = None
         self.X_original = None
         self.y_original = None
-        self.projection = None
-
-        self.folder = r"results/"
 
     def generate_umap(self):
         """
@@ -391,7 +500,7 @@ class UMAPProjection:
 
         return self.umap_model, self.umap_coords
     
-    def visualize_umap(self, save_path):
+    def visualize_umap(self, save_path=r"results/surrogate_umap_projection.png"):
         """
         Visualizes the data using UMAP (Uniform Manifold Approximation and Projection) for dimensionality reduction.
         This method projects high-dimensional data into a lower-dimensional space (typically 2D or 3D)
@@ -399,7 +508,7 @@ class UMAPProjection:
         """
 
         # Create multiple plots 
-        axes = plt.plot(1)
+        axes = plt.plot(figsize=(10, 8))
         
         # Plot 1: Clusters
         scatter1 = axes[0].scatter(self.umap_coords[:, 0], 
@@ -408,23 +517,21 @@ class UMAPProjection:
                                    alpha=0.6, 
                                    s=10)
         
-        # 
+        # Project Features
         axes[0].set_title('Cluster Assignments')
         axes[0].set_xlabel('UMAP 1')
         axes[0].set_ylabel('UMAP 2')
-        plt.colorbar(scatter1, ax=axes[0], label='Cluster Name')
+        axes[0].set_title("UMAP Projection of Feature Space")
+        axes[0].grid(True, alpha=0.3)
 
-        if save_path:
-            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        # Save the result
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+
+        # Print the saved path
+        print(f"Performance plot saved to {save_path}")
+        
         plt.show()
-
-    def results(self):
-        """
-        Append all results to csv or png to provide a repository of visuals 
-        """
-        self.folder.append(self.projection)
-
-        return self.folder
 
 class InterpretPredictions(SurrogateModel):
     """
@@ -442,9 +549,54 @@ class InterpretPredictions(SurrogateModel):
         super().__init__()
         self.tree = None
     
-    def visualize_model(self):
-        self.tree = self.model.export_graphviz()
-        print(self.tree)
+    def visualize_model(self, feature_names, save_path = r"results/decision_tree.dot"):
+        """
+        Export the fitted decision-tree surrogate model to a Graphviz DOT file and store a
+        reference to the exported tree on the instance.
+        This method will create any missing parent directories for save_path, call the
+        model's export_graphviz routine to produce a DOT representation of the tree, and
+        assign the exported graph/text to self.tree. 
+
+        Parameters
+        ----------
+        feature_names : Sequence[str]
+            Names of the features to use as labels in the rendered decision tree.
+        save_path : str, optional
+            Filesystem path for the output DOT file. If the parent directory does not
+            exist it will be created. Default: r"results/decision_tree.dot".
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        OSError
+            If the output directory cannot be created or the file cannot be written.
+        AttributeError
+            If the model does not provide an export_graphviz method.
+        ValueError, TypeError
+            If feature_names is not a suitable sequence of strings accepted by the
+            underlying export function.
+
+        Notes
+        -----
+        The exported DOT file uses filled nodes, rounded corners, and special characters
+        for improved readability. To produce an image from the DOT file, use the Graphviz
+        `dot` tool (installed separately).
+        """
+        
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        self.tree = self.model.export_graphviz(
+            out_file = save_path,
+            feature_names = feature_names,
+            filled = True,
+            rounded = True,
+            special_characters = True
+        )
+
+        print(f"Visual exported to {save_path}")
+        print("Use 'dot -Tpng decision_tree.dot -o decision_tree.png' to render")
 
 class CrossValidation(SurrogateModel):
     """
