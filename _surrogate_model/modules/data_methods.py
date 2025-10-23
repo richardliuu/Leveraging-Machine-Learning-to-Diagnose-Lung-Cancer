@@ -41,8 +41,7 @@ class LoadData:
         self.y_original_train = None
         self.y_original_test = None
         self.feature_cols = None
-        self.exclude_cols = ['true_label', 'predicted_label', 'prob_class_0', 
-                             'prob_class_1', 'patient_id', 'chunk', 'fold', 'test_idx']
+        self.exclude_cols = EXCLUDE_COLS
 
     def load_data(self, train_idx, test_idx):
         """
