@@ -27,8 +27,8 @@ Traditional deep learning models for medical diagnosis are "black boxes" - highl
 ### Solution
 We implemented an **interpretable framework** where:
 
-1. **Random Forest Model** (`models/randfor.py`): Trained on voice biomarkers for optimal accuracy using ensemble learning
-2. **Decision Tree Surrogate** (`models/decisiontree.py`): Trained to replicate Random Forest predictions using interpretable rules
+1. **Random Forest Model** (`_model/main.py`): Trained on voice biomarkers for optimal accuracy using ensemble learning
+2. **Decision Tree Surrogate** (`_surrogate_model/main.py`): Trained to replicate Random Forest predictions using interpretable rules
 
 ## Technical Architecture
 
@@ -49,8 +49,6 @@ We implemented an **interpretable framework** where:
 - **Architecture**: Max depth 10, max leaf nodes 15, regression-based approach
 
 ### Architectural Decision: Why Random Forest?
-
-After comprehensive evaluation of multiple architectures, the **Random Forest Classifier was selected as the primary model** for this lung cancer classification task. This decision was based on several key factors:
 
 #### Performance Advantages
 - **Random Forest Benefits**:
@@ -77,14 +75,15 @@ Voice Recordings → Feature Extraction → Model Training → Surrogate Analysi
 
 ```
 repository/
-├── models/                     # Primary and surrogate models
-│   ├── randfor.py              # Main Random Forest classifier with SHAP analysis
-│   ├── surrogate.py            # Decision tree surrogate model for Random Forest
-│   ├── rf_model.pkl            # Saved Random Forest model
-│   └── mlp.py                  # Alternative MLP implementation for comparison
-├── class_based_models/         # Legacy neural network implementations
-│   ├── lung_cancer_mlp.py      # MLP baseline for comparison
-│   └── lung_cancer_cnn.py      # CNN baseline for comparison
+├── _model/                     
+│   ├── modules/      
+│        ├── config.py         
+│        ├──           
+│        └──  
+├── _surrogate_model/
+│   ├── modules/      
+│        ├── config.py
+|                
 ├── data/                       # Training datasets   
 |   ├── wavfiles/               # Original audio files with lung cancer patients and healthy controls 
 │   ├── train_data.csv          # Processed voice features for Random Forest
