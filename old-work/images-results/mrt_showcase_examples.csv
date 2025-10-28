@@ -1,0 +1,4 @@
+tree_prediction,tree_probability,patient_id,ensemble_prediction,ensemble_probability,prediction_match,prob_similarity
+0.0,0.0,1- h,0,3.293836724976906e-05,True,0.9999670627176506
+0.0,0.375352129926757,10- h,0,0.3802516460551548,True,0.9951243720891874
+0.0,0.0,1- h,0,0.0008627965824290851,True,0.999137947193786

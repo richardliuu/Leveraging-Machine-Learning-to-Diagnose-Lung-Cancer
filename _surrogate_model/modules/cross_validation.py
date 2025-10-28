@@ -18,12 +18,14 @@ class CrossValidation:
         final_loader (LoadData or None): Data loader from the final fold.
     Methods:
         run_cv(cluster_mode=False):
-            Executes the cross-validation pipeline. If `cluster_mode` is True, performs cluster-based cross-validation; otherwise, runs standard cross-validation.
+            Executes the cross-validation pipeline. If `cluster_mode` is True, performs cluster-based cross-validation using
+            `ClusterData.cluster(...)`; otherwise, runs standard cross-validation.
             Returns a list of evaluation results for each fold (and cluster, if applicable).
         _run_full_cv(loader, fold):
             Runs cross-validation on the full dataset for a given fold. Trains a surrogate model and evaluates its performance.
         _run_cluster_cv(loader, fold):
-            Runs cross-validation using clusters for a given fold. Trains and evaluates a surrogate model for each cluster separately.
+            Runs cross-validation using probability-threshold clusters for a given fold. Trains and evaluates a surrogate
+            model for each cluster separately using consistent thresholds from configuration.
     """
     
     def __init__(self, n_splits, data_path):
@@ -32,6 +34,7 @@ class CrossValidation:
         self.results = []
         self.final_model = None
         self.final_loader = None
+        self.final_models = {}
         
     def run_cv(self, cluster_mode=False):
         """
@@ -109,9 +112,9 @@ class CrossValidation:
     def _run_cluster_cv(self, loader, fold):
         """
         Performs cluster-based cross-validation for a given fold.
-        This method clusters the training data, trains a surrogate model on each cluster,
-        and evaluates the model on the corresponding test cluster. The evaluation metrics
-        for each cluster and fold are stored in the `self.results` list.
+        This method clusters the training and test data via `ClusterData.cluster(...)` using thresholds from config,
+        trains a surrogate model on each training cluster, and evaluates it on the corresponding test cluster.
+        The evaluation metrics for each cluster and fold are stored in `self.results`.
         Args:
             loader: An object containing training and test datasets, including features,
                 random forest probabilities, and original target values. Expected attributes:
@@ -124,11 +127,14 @@ class CrossValidation:
         """
         
         clusterer = ClusterData()
-        train_clusters = clusterer.create_clusters(
+        train_clusters = clusterer.cluster(
             loader.X_train, 
             loader.rf_probs_train,
             loader.y_original_train
         )
+        # On the final fold, retain the loader for feature names/visualization
+        if fold == self.n_splits - 1:
+            self.final_loader = loader
         
         for cluster_name, cluster_data in train_clusters.items():
             if len(cluster_data['X']) == 0:
@@ -137,8 +143,11 @@ class CrossValidation:
             print(f"\nTraining on {cluster_name} cluster...")
             model = SurrogateModel()
             model.train(cluster_data['X'], cluster_data['y'])
+            # On the final fold, keep a reference to the trained model for this cluster
+            if fold == self.n_splits - 1:
+                self.final_models[cluster_name] = model
             
-            test_clusters = clusterer.create_clusters(
+            test_clusters = clusterer.cluster(
                 loader.X_test,
                 loader.rf_probs_test,
                 loader.y_original_test

@@ -1,0 +1,20 @@
+============================================================
+SURROGATE MODELING INSIGHTS SUMMARY
+============================================================
+
+CLUSTER SUMMARY:
+----------------------------------------
+Cluster 0.0: 309.0 samples (30.9%)
+Cluster 1.0: 343.0 samples (34.3%)
+Cluster 2.0: 348.0 samples (34.8%)
+
+DISTINGUISHING FEATURES BY CLUSTER:
+----------------------------------------
+
+cluster_1:
+  - feature_00: lower than others (z=1.58)
+
+MODEL STABILITY ACROSS CV FOLDS:
+----------------------------------------
+coverage: 1.000 ± 0.000 (CV=0.00)
+n_clusters: 2.000 ± 0.000 (CV=0.00)

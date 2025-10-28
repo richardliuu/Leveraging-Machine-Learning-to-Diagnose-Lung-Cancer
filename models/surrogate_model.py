@@ -28,7 +28,7 @@ os.environ['PYTHONHASHSEED'] = str(SEED)
 # -----------------------------
 # Load saved Random Forest
 # -----------------------------
-rf_model = joblib.load("models/rf2_model.pkl")
+rf_model = joblib.load("models/rf_model.pkl")
 print("Random Forest loaded successfully")
 
 # -----------------------------
@@ -115,9 +115,10 @@ def surrogate_pipeline_uncalibrated(handler, max_depth=5):
         # Train surrogate on UNCALIBRATED probabilities
         surrogate = DecisionTreeRegressor(
             criterion="squared_error",
-            max_depth=5,
-            min_samples_leaf=6,
-            min_samples_split=20,
+            max_depth=6,
+            max_features=0.6,
+            min_samples_leaf=10,
+            min_samples_split=25,
             max_leaf_nodes=None,
             random_state=SEED
         )
@@ -136,7 +137,7 @@ def surrogate_pipeline_uncalibrated(handler, max_depth=5):
         print(f"Validation -> MSE: {val_mse:.4f}, R²: {val_r2:.4f}")
         print(f"Test       -> MSE: {test_mse:.4f}, R²: {test_r2:.4f}")
         print(f"Node Count: {surrogate.tree_.node_count}, Max Depth: {surrogate.tree_.max_depth}")
-        print(export_graphviz(surrogate, feature_names=handler.feature_cols))
+        #print(export_graphviz(surrogate, feature_names=handler.feature_cols))
 
         fold_results.append({
             "fold": fold, 
@@ -269,5 +270,5 @@ if __name__ == "__main__":
     # Save best model
     best_fold = max(fold_results, key=lambda x: x["test_r2"])
     print(f"\nSaving best surrogate model (Fold {best_fold['fold']} with R²={best_fold['test_r2']:.4f})")
-    joblib.dump(best_fold['surrogate'], 'models/surrogate_uncalibrated.pkl')
-    print("Model saved to 'models/surrogate_uncalibrated.pkl'")
+    joblib.dump(best_fold['surrogate'], 'models/surrogate.pkl')
+    print("Model saved to 'models/surrogate.pkl'")

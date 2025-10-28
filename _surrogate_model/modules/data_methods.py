@@ -88,10 +88,9 @@ class LoadData:
 
 class ClusterData:
     """
-    ClusterData partitions data samples into clusters based on confidence thresholds.
-    This class provides methods to assign samples to "confident", "mixed", or "unconfident" clusters
-    according to predicted probability scores (e.g., classifier confidence). It stores cluster assignments
-    and provides utilities for extracting cluster-specific data subsets.
+    ClusterData partitions samples into probability-based groups using thresholds from config.
+    Default configuration sets both thresholds to 0.5, yielding two effective groups (>= 0.5 and < 0.5).
+    If thresholds differ, a middle "mixed" region is also produced.
     Attributes
     confident_threshold : float
         Probability threshold above which samples are considered "confident".
@@ -108,10 +107,10 @@ class ClusterData:
     """
         
     def __init__(self):
-        """Instantiate thresholds and cluster store.
+        """Instantiate thresholds and cluster store using global config.
 
-        Uses global thresholds from `modules.config` for consistency across the
-        pipeline. No superclass initialization is required.
+        With the default configuration where both thresholds equal 0.5, the
+        "mixed" region is empty, so only two clusters are populated.
         """
         self.confident_threshold = CONFIDENT_THRESHOLD
         self.unconfident_threshold = UNCONFIDENT_THRESHOLD

@@ -1,15 +1,13 @@
 """
 Author: Richard Liu
 Date: October, 2025 
-Description: 
 
-High-level module docstring
----------------------------
 This module provides a small framework for training and analyzing simple surrogate models
 that approximate the behavior of a pre-trained Random Forest classifier. The surrogate
 models are intended to improve interpretability by modeling the Random Forest's predicted
 probabilities (for the positive class) on selected subsets of the data that are grouped
 by the model's confidence.
+
 Primary responsibilities:
 - Load predictions and features produced by an existing Random Forest pipeline.
 - Partition samples into confidence-based clusters (e.g. confident / mixed / unconfident).
@@ -18,6 +16,7 @@ Primary responsibilities:
 - Evaluate surrogate performance using standard regression metrics and cross-validation.
 - Produce simple visualizations including UMAP embeddings and model reports.
 - Export artifacts such as trained surrogates, evaluation results, and plot images.
+
 Intended workflow
 -----------------
 1. Load a CSV containing features, the Random Forest's predicted probabilities
@@ -661,7 +660,9 @@ class CrossValidation(SurrogateModel):
 
 class RunPipeline:
     """
-    RunPipeline orchestrates the end-to-end machine learning workflow, including data loading, clustering, model training, performance reporting, and visualization.
+    RunPipeline orchestrates the end-to-end machine learning workflow, including data loading, clustering, 
+    model training, performance reporting, and visualization.
+    
     Attributes:
         model_instance (SurrogateModel): Instance of the surrogate model used for training and prediction.
         model_report (ModelReport): Instance for generating model performance reports.

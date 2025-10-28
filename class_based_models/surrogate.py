@@ -1110,7 +1110,7 @@ def main_pipeline(data_file_path='data/rf_all_test_predictions.csv'):
     
     # Phase 2: UMAP & Clustering Setup (unchanged)
     print("\nStarting Phase 2: UMAP & Clustering Setup")
-    X_original, rf_probabilities, rf_hard_predictions, y_original, feature_cols = load_and_prepare_data(data_file_path)
+    X_original, rf_probabilities, rf_hard_predictions, y_original, feature_cols = load_prepare_data(data_file_path)
     umap_model, umap_coords = generate_umap_coordinates(X_original, rf_probabilities, y_original)
     clustering, cluster_labels, valid_clusters = apply_clustering(umap_coords, rf_probabilities)
     

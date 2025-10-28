@@ -1,5 +1,6 @@
 """
 Author: Richard Liu
+Date: October 2025
 
 Description:
 Random Forest Classification for Lung Cancer Stage Classification
@@ -396,6 +397,7 @@ class RandomForestModel:
             return importance_df
         return None
 
+class SHAPAnalyzer:
     """
     SHAP (SHapley Additive exPlanations) analyzer for Random Forest model interpretability.
     
@@ -410,7 +412,6 @@ class RandomForestModel:
         fold_shap_values (list): Stores SHAP values from each fold
         fold_explainers (list): Stores TreeExplainer objects from each fold
     """
-class SHAPAnalyzer:
     
     def __init__(self):
         """
@@ -730,10 +731,7 @@ def pipeline(handler):
             fold_num=fold+1,
             save_plot=False
         )
-        
-        # Store final model for feature importance analysis
-        if fold == 3:  # Last fold
-            final_model = model
+
     
     # ==================== SUMMARY STATISTICS ====================
     print(f"\n{'='*60}\nCROSS-VALIDATION SUMMARY\n{'='*60}")
@@ -789,12 +787,6 @@ def pipeline(handler):
     avg_conf_matrix = np.mean(handler.conf_matrices, axis=0)
     print(f"\nAverage Confusion Matrix:")
     print(np.round(avg_conf_matrix).astype(int))
-    
-    # Display feature importance from final model
-    print("\nFeature Importance (Top 10):")
-    importance_df = final_model.get_feature_importance()
-    if importance_df is not None:
-        print(importance_df.head(10))
     
     # Generate cross-fold SHAP summary
     print("\nGenerating cross-fold SHAP summary...")

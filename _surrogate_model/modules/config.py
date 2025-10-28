@@ -26,9 +26,12 @@ MODEL_PARAMS = {
     "random_state": SEED
 }
 
-# Probability clustering thresholds 
-CONFIDENT_THRESHOLD = 0.7
-UNCONFIDENT_THRESHOLD = 0.4
+# Probability clustering thresholds
+# For binary clustering around 0.5, set both to 0.5 so the
+# "mixed" region is empty and only two groups remain.
+CLUSTER_THRESHOLD = 0.5
+CONFIDENT_THRESHOLD = CLUSTER_THRESHOLD
+UNCONFIDENT_THRESHOLD = CLUSTER_THRESHOLD
 
 # Cross Validation
 N_SPLITS = 4 
