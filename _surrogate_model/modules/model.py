@@ -1,14 +1,5 @@
-import random
-import os
-import numpy as np
 from sklearn.tree import DecisionTreeRegressor
 from .config import MODEL_PARAMS
-
-# Seed Setting
-SEED = 42
-np.random.seed(SEED)
-random.seed(SEED)
-os.environ['PYTHONHASHSEED'] = str(SEED)
 
 class SurrogateModel:
     """
@@ -29,7 +20,7 @@ class SurrogateModel:
         self.model_params = MODEL_PARAMS
 
 
-    def initialize_model(self, model_params):
+    def initialize_model(self, model_params=None):
         """
         This function initializes the model and takes in
         the hyperparameters for the DecisionTreeRegressor.
@@ -37,7 +28,8 @@ class SurrogateModel:
         Parameters: See config.py for the model parameters
         """
 
-        self.model = DecisionTreeRegressor(model_params)
+        params = model_params or self.model_params
+        self.model = DecisionTreeRegressor(**params)
 
         return self.model
     
