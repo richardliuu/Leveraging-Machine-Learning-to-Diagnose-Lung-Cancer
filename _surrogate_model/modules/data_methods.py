@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from .config import EXCLUDE_COLS, CONFIDENT_THRESHOLD, UNCONFIDENT_THRESHOLD
+from .config import EXCLUDE_COLS, CONFIDENT_THRESHOLD, UNCONFIDENT_THRESHOLD, DATA_PATH
 
 class LoadData:
     """
@@ -27,7 +27,7 @@ class LoadData:
 
     """
     
-    def __init__(self, data_path="data/rf_predictions.csv"):
+    def __init__(self, data_path=DATA_PATH):
         self.data_path = data_path
         self.df = None
         self.X_train = None
@@ -108,8 +108,11 @@ class ClusterData:
     """
         
     def __init__(self):
-        """ Instantiate variables """
-        super().__init__(LoadData)
+        """Instantiate thresholds and cluster store.
+
+        Uses global thresholds from `modules.config` for consistency across the
+        pipeline. No superclass initialization is required.
+        """
         self.confident_threshold = CONFIDENT_THRESHOLD
         self.unconfident_threshold = UNCONFIDENT_THRESHOLD
         self.clusters = {}
