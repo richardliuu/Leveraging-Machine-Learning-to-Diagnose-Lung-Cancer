@@ -1,5 +1,7 @@
 # Interpretable Lung Cancer Diagnosis from Voice Biomarkers
 
+NOTE TO USE MORE IMAGES THROUGHOUT THE README
+
 ## Project Overview
 
 This project presents a novel machine learning approach for lung cancer diagnosis using voice biomarkers, with a unique focus on **interpretable AI through surrogate modeling**. The system combines the high accuracy of Random Forest classification with the transparency of decision trees, providing clinicians with both reliable predictions and understandable explanations.
@@ -9,20 +11,16 @@ This project presents a novel machine learning approach for lung cancer diagnosi
 - **Primary Model**: Random Forest Classifier for high-accuracy lung cancer binary classification
 - **Surrogate Model**: Decision Tree trained to mimic Random Forest predictions while providing interpretable decision rules
 
-## Clinical Significance
-
-Lung cancer can cause subtle changes in voice patterns due to effects on the respiratory system. This project investigates whether machine learning models can detect such changes using features extracted from speech recordings, offering a **non-invasive, accessible screening approach**.
 
 ### Why Voice-Based Screening?
 - **Non-invasive**: No physical procedures required
 - **Accessible**: Can be performed remotely with basic recording equipment  
-- **Early Detection**: Potential to identify subtle vocal changes before clinical symptoms
 - **Cost-Effective**: Minimal infrastructure requirements for widespread deployment
 
-## Interpretability Approach
+## Our Approach
 
 ### The Challenge
-Traditional deep learning models for medical diagnosis are "black boxes" - highly accurate but difficult for clinicians to understand and trust.
+Deep learning models and large ensemble models are generally accurate but difficult to understand due to their complexity.
 
 ### Solution
 We implemented an **interpretable framework** where:
@@ -67,9 +65,7 @@ The surrogate decision tree framework enables clinicians to understand Random Fo
 
 ### Data Processing Pipeline
 
-```
-Voice Recordings → Feature Extraction → Model Training → Surrogate Analysis → Clinical Interpretation
-```
+INSERT IMAGE OF PIPELINE LATER 
 
 ## Project Structure
 
@@ -95,38 +91,11 @@ repository/
 
 ## Getting Started
 
+REWRITE GETTING STARTED 
+
 ### Prerequisites
 - Python 3.8+
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd <folder name>
-   ```
-
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Run the models**
-   
-   **Primary Random Forest Model:**
-   ```bash
-   python models/randfor.py
-   ```
-   
-   **Surrogate Decision Tree:**
-   ```bash
-   python models/decisiontree.py
-   ```
-   
-   **MLP Baseline (for comparison):**
-   ```bash
-   python class_based_models/lung_cancer_mlp.py
-   ```
 
 ## Key Features
 
@@ -134,14 +103,9 @@ repository/
 - **Patient-Grouped Cross-Validation**: Prevents data leakage by ensuring no patient appears in both training and testing sets
 - **Stratified Sampling**: Maintains class distribution across all splits
 
-### Class Imbalance Handling
-- **Stratified Cross-Validation**: Maintains class distribution across all splits
-- **Balanced Metrics**: Focus on macro-averaged metrics for fair evaluation
-
 ### Interpretability Tools
 - **SHAP Analysis**: Feature importance for both Random Forest and surrogate models
 - **Decision Tree Visualization**: Transparent decision rules with feature thresholds from surrogate
-- **Fidelity Assessment**: Validates surrogate accuracy against Random Forest using R² scores
 - **Comparative Analysis**: Validates surrogate fidelity to original Random Forest predictions
 
 ## Model Performance
