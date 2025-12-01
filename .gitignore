@@ -2,3 +2,5 @@ wavfiles/
 data/
 class_based_models/__pycache__
 *.pyc
+modularized/
+BEExAI/
