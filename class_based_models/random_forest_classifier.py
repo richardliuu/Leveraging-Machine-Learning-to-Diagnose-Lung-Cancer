@@ -2,11 +2,8 @@
 Author: Richard Liu
 
 Description:
-Random Forest Classification for Lung Cancer Stage Classification
-
 This module implements a Random Forest approach for lung cancer stage classification
-using scikit-learn's RandomForestClassifier. The model employs rigorous cross-validation
-techniques to prevent data leakage and ensure robust performance evaluation.
+using scikit-learn's RandomForestClassifier. 
 
 Key Features:
 - Patient-grouped cross-validation to prevent data leakage
@@ -38,34 +35,14 @@ SEED = 141
 np.random.seed(SEED)
 random.seed(SEED)
 
-"""
-The DataHandling Class handles and transforms the Random Forest performance data into training data. 
-
-The instantiated variables for training and testing are managed through class functions.
-Data Splits are handled in split().
-
-This class encapsulates all data preprocessing steps including:
-- Data integrity checks for duplicate samples and label consistency
-- Feature selection and column dropping
-- Patient-grouped cross-validation splits
-- Class distribution analysis
-
-Attributes:
-    data (str): Path to the input CSV file
-    
-    Storage for cross-validation results:
-    - reports: Classification reports from each fold
-    - conf_matrices: Confusion matrices from each fold
-    - roc_aucs: ROC-AUC scores from each fold
-    - fold_details: Fold-specific statistics and metadata
-    - predictions: Model predictions from each fold
-"""
-
 class DataHandling:
+    """
+    
+    """
+
     def __init__(self):
-        self.data = "data/train_data"
+        self.data = "data/train_data.csv"
         
-        # Storage for cross-validation results
         self.reports = []
         self.conf_matrices = []
         self.roc_aucs = []
@@ -87,43 +64,15 @@ class DataHandling:
         self.test_patients = None
         
     def load_data(self):
-        """
-        Load and perform comprehensive data integrity checks on the lung cancer dataset.
-        
-        This method loads the dataset, extracts features and labels, and validates data quality
-        by checking for duplicate samples and ensuring patient-label consistency across all samples.
-        It also provides a summary of the class distribution.
-        
-        Returns:
-            bool: True if data passes all integrity checks (no duplicates and consistent 
-                  patient labels), False otherwise.
-        
-        Checks Performed:
-            1. Duplicate Detection: Identifies samples with identical feature values
-            2. Patient-Label Consistency: Ensures each patient has consistent cancer stage labels
-            3. Class Distribution: Reports overall distribution of cancer stages
-        
-        Side Effects:
-            - Prints data loading statistics and warnings for any integrity issues found
-            - Sets class attributes: X, y, feature_cols, groups
-        
-        Data Structure Expected:
-            CSV file with columns: 'chunk', 'cancer_stage', 'patient_id', 'filename', 
-            'rolloff', 'bandwidth', 'skew', 'zcr', 'rms', plus feature columns
-        
-        Example:
-            >>> handler = DataHandling()
-            >>> is_clean = handler.load_data()
-            >>> if is_clean:
-            ...     print("Data passed all integrity checks")
-        """
         print("Loading dataset...")
         df = pd.read_csv(self.data)
         print(f"Loaded {len(df)} samples from {df['patient_id'].nunique()} patients")
         
-        # Prepare features and labels - drop metadata columns
-        self.X = df.drop(columns=['chunk', 'cancer_stage', 'patient_id', 'filename', 
-                                 'rolloff', 'bandwidth', "skew", "zcr", 'rms'])
+        # Prepare features and labels and drop metadata
+        metadata_cols = ['chunk', 'cancer_stage', 'patient_id', 'filename', 'bandwidth', 'skew', 'rolloff', 'zcr', 'rms']
+        cols_to_drop = [col for col in metadata_cols if col in df.columns]
+        
+        self.X = df.drop(columns=cols_to_drop)
         self.y = df['cancer_stage']
         self.groups = df['patient_id']
         self.feature_cols = self.X.columns.tolist()
@@ -132,72 +81,11 @@ class DataHandling:
         print(f"Total patients: {df['patient_id'].nunique()}")
         print(f"Features: {self.X.shape[1]}")
         
-        # Perform data integrity verification
-        return self._verify_data_integrity(df)
-    
-    def _verify_data_integrity(self, df):
-        """
-        Verify data integrity by checking for duplicates and inconsistent patient labels.
-        
-        Args:
-            df (pd.DataFrame): The loaded dataset
-            
-        Returns:
-            bool: True if data passes all checks, False otherwise
-        
-        Private method that performs:
-            - Duplicate sample detection across feature columns
-            - Patient label consistency verification
-            - Class distribution analysis and reporting
-        """
-        print("\n=== DATA INTEGRITY CHECKS ===")
-        
-        # Check for duplicate samples
-        duplicates = df.duplicated(subset=self.feature_cols)
-        print(f"Duplicate feature rows: {duplicates.sum()}")
-        
-        if duplicates.sum() > 0:
-            print("WARNING: Duplicate samples found!")
-            dup_rows = df[duplicates]
-            print(f"Example duplicate patients: {dup_rows['patient_id'].unique()[:5]}")
-        else:
-            print("No duplicate feature rows found")
-        
-        # Check for inconsistent patient labels
-        patient_labels = df.groupby('patient_id')['cancer_stage'].nunique()
-        inconsistent_patients = patient_labels[patient_labels > 1]
-        if len(inconsistent_patients) > 0:
-            print(f"WARNING: {len(inconsistent_patients)} patients have inconsistent labels!")
-            print("Inconsistent patients:", inconsistent_patients.index.tolist()[:10])
-        else:
-            print("All patients have consistent labels")
-        
-        # Display class distribution
-        print(f"\nOverall class distribution:")
-        class_counts = df['cancer_stage'].value_counts()
-        print(class_counts)
-        print(f"Class ratio: {class_counts.iloc[0]/class_counts.iloc[1]:.2f}:1")
-        
-        return duplicates.sum() == 0 and len(inconsistent_patients) == 0
-    
     def split(self, df, train_idx, test_idx):
         """
-        Split the dataset into training and testing sets for the current fold.
-        
-        Args:
-            df (pd.DataFrame): The complete dataset
-            train_idx (np.ndarray): Indices for training samples
-            test_idx (np.ndarray): Indices for testing samples
-        
-        Side Effects:
-            Sets the following class attributes:
-            - X_train, X_test: Training and testing feature matrices
-            - y_train, y_test: Training and testing labels
-            - train_patients, test_patients: Sets of patient IDs for each split
-        
-        This method handles the data splitting for GroupKFold cross-validation,
-        ensuring that patient grouping is maintained.
+
         """
+
         self.X_train, self.X_test = self.X.iloc[train_idx], self.X.iloc[test_idx]
         self.y_train, self.y_test = self.y.iloc[train_idx], self.y.iloc[test_idx]
         
@@ -207,41 +95,10 @@ class DataHandling:
 
 class RandomForestModel:
     """
-    Random Forest classifier for lung cancer stage classification.
     
-    This class implements a Random Forest model with configurable hyperparameters
-    optimized for medical classification tasks. The model includes balanced class
-    weights to handle potential class imbalance and provides feature importance analysis.
-    
-    Attributes:
-        model (RandomForestClassifier): The scikit-learn Random Forest model
-        feature_cols (list): Names of the feature columns for interpretability
-    
-    Model Configuration (with aggressive regularization):
-        - criterion: "log_loss" for probabilistic splits
-        - n_estimators: 200 trees for stable predictions
-        - max_depth: 5 to prevent overfitting (reduced from 12)
-        - max_features: 0.6 to use only 60% of features for each split
-        - min_samples_split: 25 to ensure robust splits (increased from 12)
-        - min_samples_leaf: 10 for stable leaf predictions (increased from 3)
-        - class_weight: 'balanced' to handle class imbalance
-        - bootstrap: True for bootstrapping samples
-        - oob_score: True for out-of-bag scoring validation
-        - random_state: Fixed seed for reproducibility
-        - n_jobs: -1 to use all available processors
     """
     
     def __init__(self):
-        """
-        Initialize the Random Forest model with optimized hyperparameters.
-        
-        The hyperparameters are tuned for medical classification tasks where:
-        - Preventing overfitting is crucial (controlled depth and samples)
-        - Class imbalance may exist (balanced weights)
-        - Interpretability is important (moderate number of trees)
-        - Reproducibility is required (fixed random state)
-        """
-
         self.model = RandomForestClassifier(
             criterion="log_loss",
             n_estimators=200,
@@ -260,99 +117,67 @@ class RandomForestModel:
     
     def train(self, X_train, y_train, feature_cols):
         """
-        Train the Random Forest model on the provided training data.
-        
-        Args:
-            X_train (pd.DataFrame): Training feature matrix
-            y_train (pd.Series): Training labels
-            feature_cols (list): Names of feature columns for interpretability
-        
-        Side Effects:
-            - Fits the Random Forest model to the training data
-            - Stores feature column names for later interpretation
-        
-        The training process uses all specified hyperparameters and leverages
-        scikit-learn's efficient Random Forest implementation with parallel processing.
+    
         """
         self.feature_cols = feature_cols
         self.model.fit(X_train, y_train)
     
     def predict(self, X_test):
-        """
-        Generate class predictions for test data.
-        
-        Args:
-            X_test (pd.DataFrame): Test feature matrix
-            
-        Returns:
-            np.ndarray: Predicted class labels
-        
-        Uses the trained Random Forest to make discrete class predictions
-        based on majority voting across all trees in the ensemble.
-        """
         return self.model.predict(X_test)
     
     def predict_proba(self, X_test):
-        """
-        Generate class probability predictions for test data.
-        
-        Args:
-            X_test (pd.DataFrame): Test feature matrix
-            
-        Returns:
-            np.ndarray: Probability predictions for each class
-        
-        Returns the probability estimates for each class, averaged across
-        all trees in the Random Forest ensemble.
-        """
         return self.model.predict_proba(X_test)
     
+    def get_feature_importance(self):
+        """
+
+        """
+
+        if self.feature_cols is None:
+            raise ValueError("Model must be trained first")
+            
+        importance_df = pd.DataFrame({
+            'feature': self.feature_cols,
+            'importance': self.model.feature_importances_
+        }).sort_values('importance', ascending=False)
+        
+        return importance_df
+    
+    def plot_feature_importance(self, 
+                                top_n=15, 
+                                save_path='data/results/rf_feature_importance.png'
+                                ):
+        """
+
+        """
+        importance_df = self.get_feature_importance()
+        
+        plt.figure(figsize=(10, 6))
+        
+        top_features = importance_df.head(top_n)
+        plt.barh(range(len(top_features)), top_features['importance'])
+        plt.yticks(range(len(top_features)), top_features['feature'])
+        plt.xlabel('Importance')
+        plt.ylabel('Feature')
+        plt.title(f'Top {top_n} Feature Importances from Random Forest Model')
+        plt.gca().invert_yaxis()
+        plt.grid(True, alpha=0.3, axis='x')
+        plt.tight_layout()
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Feature importance plot saved to {save_path}")
+        plt.show()
+    
     def evaluate(self, X_test, y_test, X_train=None, y_train=None):
-        """
-        Evaluate the model performance on test data with comprehensive metrics,
-        including overfitting detection by comparing training and test performance.
-        
-        This method computes multiple performance metrics to provide a thorough
-        assessment of model performance for medical classification tasks.
-        
-        Args:
-            X_test (pd.DataFrame): Test feature matrix
-            y_test (pd.Series): True test labels
-            X_train (pd.DataFrame, optional): Training feature matrix for overfitting check
-            y_train (pd.Series, optional): Training labels for overfitting check
-            
-        Returns:
-            tuple: A 5-tuple containing:
-                - report (dict): Comprehensive classification report with precision,
-                  recall, F1-score, and support for each class
-                - c_matrix (np.ndarray): Confusion matrix showing prediction accuracy
-                - auc (float): ROC-AUC score for binary classification performance
-                - train_accuracy (float, optional): Training accuracy if X_train provided
-                - overfitting_gap (float, optional): Difference between train and test accuracy
-        
-        Metrics Computed:
-            1. Classification Report:
-                - Per-class precision, recall, F1-score
-                - Macro and weighted averages
-                - Support (number of samples per class)
-            
-            2. Confusion Matrix:
-                - True vs predicted class counts
-                - Diagonal elements show correct classifications
-                - Off-diagonal elements show misclassifications
-            
-            3. ROC-AUC Score:
-                - Area under the ROC curve for binary classification
-                - Measures model's ability to distinguish between classes
-                - Values closer to 1.0 indicate better discriminative performance
-        """
         y_pred = self.predict(X_test)
-        y_pred_prob = self.predict_proba(X_test)[:, 1]  # Probability of positive class
+        y_pred_prob = self.predict_proba(X_test)[:, 1] 
         
-        # Generate comprehensive classification report
+        # Classification report
         report = classification_report(y_test, y_pred, output_dict=True)
         
-        # Generate confusion matrix
+        # Confusion matrix
         c_matrix = confusion_matrix(y_test, y_pred)
         
         # Calculate ROC-AUC score with error handling
@@ -370,79 +195,25 @@ class RandomForestModel:
             overfitting_gap = train_accuracy - report['accuracy']
         
         return report, c_matrix, auc, train_accuracy, overfitting_gap
-    
-    def get_feature_importance(self):
-        """
-        Get feature importance scores from the trained Random Forest.
-        
-        Returns:
-            pd.DataFrame: DataFrame with features and their importance scores,
-                         sorted by importance in descending order
-        
-        Feature Importance:
-            - Based on mean decrease in impurity across all trees
-            - Higher values indicate more important features for classification
-            - Useful for understanding which biomarkers drive predictions
-            - Can guide feature selection for future model iterations
-        
-        Note:
-            Requires the model to be trained and feature_cols to be set.
-        """
-        if self.feature_cols is not None:
-            importance_df = pd.DataFrame({
-                'feature': self.feature_cols,
-                'importance': self.model.feature_importances_
-            }).sort_values('importance', ascending=False)
-            return importance_df
-        return None
 
-    """
-    SHAP (SHapley Additive exPlanations) analyzer for Random Forest model interpretability.
-    
-    This class encapsulates all SHAP analysis functionality, providing a unified interface
-    for generating and visualizing feature contributions to model predictions. SHAP values
-    offer a game-theoretic approach to understanding how each feature impacts the model's
-    output for individual predictions.
-    
-    Attributes:
-        model: The trained Random Forest model to analyze
-        feature_cols (list): Names of feature columns for labeling
-        fold_shap_values (list): Stores SHAP values from each fold
-        fold_explainers (list): Stores TreeExplainer objects from each fold
-    """
 class SHAPAnalyzer:
+    """
     
+    """
+
     def __init__(self):
-        """
-        Initialize the SHAP analyzer.
-        """
         self.model = None
         self.feature_cols = None
         self.fold_shap_values = []
         self.fold_explainers = []
     
-    def analyze_fold(self, model, X_test, feature_cols, fold_num, save_plot=False):
-        """
-        Generate SHAP analysis for a specific fold.
-        
-        Args:
-            model: Trained RandomForestClassifier model
-            X_test (pd.DataFrame): Test data for generating SHAP values
-            feature_cols (list): Feature column names
-            fold_num (int): Current fold number (1-indexed)
-            save_plot (bool): Whether to save the SHAP plot to file
-            
-        Returns:
-            tuple: (shap_values, explainer) where:
-                - shap_values: SHAP values for the positive class
-                - explainer: TreeExplainer object for further analysis
-        
-        SHAP Analysis Process:
-            1. Creates background dataset for baseline comparisons
-            2. Initializes TreeExplainer optimized for tree-based models
-            3. Computes SHAP values showing feature contributions
-            4. Generates summary plot showing feature importance and impact
-        """
+    def analyze_fold(self, 
+                     model, 
+                     X_test, 
+                     feature_cols, 
+                     fold_num, 
+                     save_plot=False
+                     ):
         self.model = model
         self.feature_cols = feature_cols
         
@@ -457,6 +228,11 @@ class SHAPAnalyzer:
         
         # Sample background data for SHAP baseline
         # Using small background set for computational efficiency
+
+        """
+        Small background set 
+        """
+
         background_size = min(20, len(X_test_df))
         background = X_test_df.sample(n=background_size, random_state=42).to_numpy()
         
@@ -475,7 +251,7 @@ class SHAPAnalyzer:
             shap_vals_to_plot = shap_values[:, :, class_index]
         elif isinstance(shap_values, list):
             # List of arrays for each class
-            shap_vals_to_plot = shap_values[1]  # Positive class
+            shap_vals_to_plot = shap_values[1]  
         else:
             # 2D array for binary classification
             shap_vals_to_plot = shap_values
@@ -490,9 +266,10 @@ class SHAPAnalyzer:
         
         # Generate SHAP summary plot
         plt.figure(figsize=(12, 8))
-        shap.summary_plot(shap_vals_to_plot, X_test_df, 
-                         feature_names=self.feature_cols, 
-                         show=False)
+        shap.summary_plot(shap_vals_to_plot, 
+                          X_test_df, 
+                          feature_names=self.feature_cols, 
+                          show=False)
         
         # Add title with fold information
         plt.title(f'SHAP Feature Importance - Fold {fold_num}', fontsize=14, pad=20)
@@ -519,19 +296,6 @@ class SHAPAnalyzer:
         return shap_vals_to_plot, explainer
     
     def generate_cross_fold_summary(self, save_plot=False):
-        """
-        Generate a summary of SHAP values across all folds.
-        
-        This method aggregates SHAP values from all folds to provide an overall
-        view of feature importance consistency and variation across different
-        data splits.
-        
-        Args:
-            save_plot (bool): Whether to save the summary plot to file
-        
-        Returns:
-            pd.DataFrame: Summary statistics of SHAP values across folds
-        """
         if not self.fold_shap_values:
             print("No SHAP values available. Run analyze_fold first.")
             return None
@@ -595,96 +359,27 @@ class SHAPAnalyzer:
         plt.show()
         
         return summary_df
+    
+class Summary(RandomForestModel):  
+    """
+    Class will be used to summarize results of the pipeline
+    """
+    def __init__(self):
+        super().__init__()
 
-def pipeline(handler):
-    """
-    Execute the complete machine learning pipeline with patient-grouped cross-validation.
-    
-    This function implements a comprehensive ML pipeline that trains and evaluates
-    a Random Forest classifier for lung cancer stage classification using rigorous
-    cross-validation techniques to prevent data leakage and ensure robust performance.
-    
-    Args:
-        handler (DataHandling): Initialized DataHandling object containing loaded
-                               dataset and preprocessing configurations.
-        generate_shap_for_all_folds (bool): If True, generates SHAP analysis for each fold.
-                                           If False, only generates for the last fold.
-    
-    Pipeline Steps (per fold):
-        1. Patient-grouped data splitting to prevent leakage
-        2. Patient leakage verification
-        3. Model initialization and training
-        4. Comprehensive evaluation with multiple metrics
-        5. Results storage and performance logging
-        6. Feature importance analysis (final fold only)
-    
-    Cross-Validation Strategy:
-        - 4-fold GroupKFold ensures patients don't appear in both train/test
-        - Each fold trains a fresh model to avoid bias
-        - Performance metrics aggregated across all folds
-        - Real-time progress reporting during evaluation
-    
-    Results Storage:
-        Updates handler attributes with:
-        - reports: Classification reports with precision/recall/F1
-        - conf_matrices: Confusion matrices showing prediction accuracy
-        - roc_aucs: ROC-AUC scores for model discrimination ability
-        - fold_details: Fold metadata including sample counts and accuracy
-        - predictions: Model predictions for each fold
-    
-    Performance Monitoring:
-        - Patient leakage detection and termination if found
-        - Real-time accuracy statistics during cross-validation
-        - Confusion matrix display for each fold
-        - Comprehensive summary statistics across all folds
-        - Feature importance analysis from final model
-    
-    Example:
-        >>> handler = DataHandling()
-        >>> handler.load_data()
-        >>> pipeline(handler)
-        # Executes complete 4-fold cross-validation pipeline
-    """
-    print("\nRunning Random Forest Cross-Validation...")
-    
-    # Load the full dataset for patient tracking
-    df = pd.read_csv(handler.data)
-    
-    group_kfold = StratifiedGroupKFold(n_splits=4)
-    
-    # Execute cross-validation
-    for fold, (train_idx, test_idx) in enumerate(group_kfold.split(handler.X, handler.y, handler.groups)):
-        print(f"\n{'='*50}\nFOLD {fold+1}/4\n{'='*50}")
-        
-        # Split data for current fold
-        handler.split(df, train_idx, test_idx)
-        
-        # Critical: Verify no patient leakage between train and test sets
-        overlap = handler.train_patients.intersection(handler.test_patients)
-        if overlap:
-            print(f"CRITICAL: Patient leakage detected! {overlap}")
-            return None
-        
-        print(f"Train: {len(handler.train_patients)} patients, {len(handler.X_train)} samples")
-        print(f"Test:  {len(handler.test_patients)} patients, {len(handler.X_test)} samples")
-        
-        # Initialize and train Random Forest model
-        model = RandomForestModel()
-        model.train(handler.X_train, handler.y_train, handler.feature_cols)
-        
-        # Evaluate model performance with overfitting check
-        report, c_matrix, auc, train_accuracy, overfitting_gap = model.evaluate(
-            handler.X_test, handler.y_test, handler.X_train, handler.y_train
+    def save_results(self, handler, fold, y_pred):
+        """Save fold results to handler"""
+        report, c_matrix, auc, train_accuracy, overfitting_gap = self.evaluate(
+            handler.X_test, 
+            handler.y_test, 
+            handler.X_train, 
+            handler.y_train
         )
-        
-        # Store predictions for analysis
-        y_pred = model.predict(handler.X_test)
-        handler.predictions.append(y_pred)
-        
-        # Store evaluation results
+
         handler.reports.append(report)
         handler.conf_matrices.append(c_matrix)
         handler.roc_aucs.append(auc)
+        handler.predictions.append(y_pred)
         handler.fold_details.append({
             'fold': fold + 1,
             'train_patients': len(handler.train_patients),
@@ -696,18 +391,20 @@ def pipeline(handler):
             'overfitting_gap': overfitting_gap
         })
 
-        results_df = handler.X_test.copy()
-        results_df['true_label'] = handler.y_test.values
-        results_df['predicted_label'] = y_pred
-        y_pred_prob = model.predict_proba(handler.X_test)[:, 1]  # Get probability for class 1
-        results_df['c1_prob'] = y_pred_prob
-
-        training_data = pd.read_csv("data/jitter_shimmerlog.csv")
-        results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
-        results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
-        results_df.to_csv('data/rf2_surrogate_data.csv', index=False)
+        return report, c_matrix, auc, train_accuracy, overfitting_gap
+    
+    def display_fold_results(self, 
+                             fold,
+                             handler, 
+                             report, 
+                             c_matrix, 
+                             auc, 
+                             train_accuracy, 
+                             overfitting_gap
+                             ):
         
-        # Display fold results with overfitting analysis
+        """Display results for a single fold"""
+        y_pred = handler.predictions[-1]
         print(f"\nFold {fold+1} Results:")
         print(f"Training Accuracy: {train_accuracy:.4f}")
         print(f"Test Accuracy: {report['accuracy']:.4f}")
@@ -717,127 +414,183 @@ def pipeline(handler):
         print("Confusion Matrix:")
         print(c_matrix)
         print(f"ROC AUC Score: {auc:.4f}")
+    
+    def print_summary(self, handler):
+        """Print cross-validation summary statistics"""
+        print(f"\n{'='*60}\nCROSS-VALIDATION SUMMARY\n{'='*60}")
         
-        # Store model for SHAP analysis
-        if fold == 0:
-            shap_analyzer = SHAPAnalyzer()
+        # Calculate accuracy statistics
+        accuracies = [r['accuracy'] for r in handler.reports]
+        train_accuracies = [d['train_accuracy'] for d in handler.fold_details]
+        overfitting_gaps = [d['overfitting_gap'] for d in handler.fold_details]
         
-        # Generate SHAP analysis for every fold
-        shap_values, explainer = shap_analyzer.analyze_fold(
-            model.model,  # Pass the actual sklearn model
-            handler.X_test,
-            handler.feature_cols,
-            fold_num=fold+1,
-            save_plot=False
-        )
+        print("Per-fold results:")
+        for i, details in enumerate(handler.fold_details):
+            print(f"Fold {i+1}: Train={details['train_accuracy']:.4f}, Test={details['accuracy']:.4f}, "
+                  f"Gap={details['overfitting_gap']:.4f} "
+                  f"({details['test_patients']} patients, {details['test_samples']} samples)")
         
-        # Store final model for feature importance analysis
-        if fold == 3:  # Last fold
-            final_model = model
+        avg_accuracy = np.mean(accuracies)
+        std_accuracy = np.std(accuracies)
+        avg_train_accuracy = np.mean(train_accuracies)
+        avg_overfitting_gap = np.mean(overfitting_gaps)
+        
+        print(f"\nOverall Performance:")
+        print(f"Mean Training Accuracy: {avg_train_accuracy:.4f}")
+        print(f"Mean Test Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
+        print(f"Mean Overfitting Gap: {avg_overfitting_gap:.4f}")
+        print(f"Min Test Accuracy: {min(accuracies):.4f}")
+        print(f"Max Test Accuracy: {max(accuracies):.4f}")
+        
+        # Calculate class-wise F1 scores
+        class_0_f1 = [r['0']['f1-score'] for r in handler.reports]
+        class_1_f1 = [r['1']['f1-score'] for r in handler.reports]
+        print(f"\nClass-wise F1-scores:")
+        print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
+        print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
+        
+        # Display average confusion matrix
+        avg_conf_matrix = np.mean(handler.conf_matrices, axis=0)
+        print(f"\nAverage Confusion Matrix:")
+        print(np.round(avg_conf_matrix).astype(int))
+        
+        return class_0_f1, class_1_f1
     
-    # ==================== SUMMARY STATISTICS ====================
-    print(f"\n{'='*60}\nCROSS-VALIDATION SUMMARY\n{'='*60}")
+    def plot_f1_scores(self, class_0_f1, class_1_f1):
+        """Plot F1 scores per fold"""
+        plt.figure(figsize=(10, 6))
+        folds = list(range(1, len(class_0_f1) + 1))
+        
+        plt.plot(folds, class_0_f1, 'o-', label='Class 0 F1-score', linewidth=2, markersize=8)
+        plt.plot(folds, class_1_f1, 's-', label='Class 1 F1-score', linewidth=2, markersize=8)
+        
+        plt.xlabel('Fold')
+        plt.ylabel('F1-score')
+        plt.title('F1-score per Fold for Random Forest Classifier')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.xticks(folds)
+        plt.ylim(0, 1)
+        plt.tight_layout()
+        plt.show()
+        
+class CrossValidation(Summary):
+    """
     
-    # Calculate accuracy statistics
-    accuracies = [r['accuracy'] for r in handler.reports]
-    train_accuracies = [d['train_accuracy'] for d in handler.fold_details]
-    overfitting_gaps = [d['overfitting_gap'] for d in handler.fold_details]
+    """
     
-    print("Per-fold results:")
-    for i, details in enumerate(handler.fold_details):
-        print(f"Fold {i+1}: Train={details['train_accuracy']:.4f}, Test={details['accuracy']:.4f}, "
-              f"Gap={details['overfitting_gap']:.4f} "
-              f"({details['test_patients']} patients, {details['test_samples']} samples)")
+    def __init__(self, handler):
+        super().__init__()
+        self.df = pd.read_csv(handler.data)
+        self.group_kfold = StratifiedGroupKFold(n_splits=4)
+        self.handler = handler
+        self.shap_analyzer = None
+        self.final_model = None
     
-    avg_accuracy = np.mean(accuracies)
-    std_accuracy = np.std(accuracies)
-    avg_train_accuracy = np.mean(train_accuracies)
-    avg_overfitting_gap = np.mean(overfitting_gaps)
-    
-    print(f"\nOverall Performance:")
-    print(f"Mean Training Accuracy: {avg_train_accuracy:.4f}")
-    print(f"Mean Test Accuracy: {avg_accuracy:.4f} ± {std_accuracy:.4f}")
-    print(f"Mean Overfitting Gap: {avg_overfitting_gap:.4f}")
-    print(f"Min Test Accuracy: {min(accuracies):.4f}")
-    print(f"Max Test Accuracy: {max(accuracies):.4f}")
-    
-    # Calculate class-wise F1 scores
-    class_0_f1 = [r['0']['f1-score'] for r in handler.reports]
-    class_1_f1 = [r['1']['f1-score'] for r in handler.reports]
-    print(f"\nClass-wise F1-scores:")
-    print(f"Class 0: {np.mean(class_0_f1):.4f} ± {np.std(class_0_f1):.4f}")
-    print(f"Class 1: {np.mean(class_1_f1):.4f} ± {np.std(class_1_f1):.4f}")
-    
-    # Plot F1 scores per fold
-    plt.figure(figsize=(10, 6))
-    folds = list(range(1, len(class_0_f1) + 1))
-    
-    plt.plot(folds, class_0_f1, 'o-', label='Class 0 F1-score', linewidth=2, markersize=8)
-    plt.plot(folds, class_1_f1, 's-', label='Class 1 F1-score', linewidth=2, markersize=8)
-    
-    plt.xlabel('Fold')
-    plt.ylabel('F1-score')
-    plt.title('F1-score per Fold for Random Forest Classifier')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.xticks(folds)
-    plt.ylim(0, 1)
-    plt.tight_layout()
-    plt.show()
-    
-    # Display average confusion matrix
-    avg_conf_matrix = np.mean(handler.conf_matrices, axis=0)
-    print(f"\nAverage Confusion Matrix:")
-    print(np.round(avg_conf_matrix).astype(int))
-    
-    # Display feature importance from final model
-    print("\nFeature Importance (Top 10):")
-    importance_df = final_model.get_feature_importance()
-    if importance_df is not None:
-        print(importance_df.head(10))
-    
-    # Generate cross-fold SHAP summary
-    print("\nGenerating cross-fold SHAP summary...")
-    shap_summary = shap_analyzer.generate_cross_fold_summary(save_plot=False)
-    
-    return handler, shap_analyzer
+    def save_surrogate_data(self, handler, test_idx, y_pred):
+        """Save predictions for surrogate model training"""
+        results_df = handler.X_test.copy()
+        results_df['true_label'] = handler.y_test.values
+        results_df['predicted_label'] = y_pred
+        y_pred_prob = self.model.predict_proba(handler.X_test)[:, 1]
+        results_df['c1_prob'] = y_pred_prob
+
+        training_data = pd.read_csv("data/train_data.csv")
+        results_df['patient_id'] = training_data.iloc[test_idx]['patient_id'].values
+        results_df['chunk'] = training_data.iloc[test_idx]['chunk'].values
+        results_df.to_csv('data/rf2_surrogate_data.csv', index=False)
+        
+    def pipeline(self):
+        """Execute cross-validation pipeline"""
+        handler = self.handler
+        
+        # Execute cross-validation
+        for fold, (train_idx, test_idx) in enumerate(self.group_kfold.split(handler.X, handler.y, handler.groups)):
+            print(f"\n{'='*50}\nFOLD {fold+1}/4\n{'='*50}")
+            
+            # Split data for current fold
+            handler.split(self.df, train_idx, test_idx)
+            
+            print(f"Train: {len(handler.train_patients)} patients, {len(handler.X_train)} samples")
+            print(f"Test:  {len(handler.test_patients)} patients, {len(handler.X_test)} samples")
+            
+            # Train model 
+            self.train(handler.X_train, handler.y_train, handler.feature_cols)
+            
+            # Evaluate and save results
+            y_pred = self.predict(handler.X_test)
+            report, c_matrix, auc, train_accuracy, overfitting_gap = self.save_results(handler, fold, y_pred)
+            
+            # Save data for surrogate model
+            self.save_surrogate_data(handler, 
+                                     test_idx, 
+                                     y_pred
+                                     )
+            
+            # Display fold results
+            self.display_fold_results(fold, 
+                                      handler, 
+                                      report, 
+                                      c_matrix, 
+                                      auc, 
+                                      train_accuracy, 
+                                      overfitting_gap
+                                      )
+            
+            # SHAP analysis
+            if fold == 0:
+                self.shap_analyzer = SHAPAnalyzer()
+            
+            shap_values, explainer = self.shap_analyzer.analyze_fold(
+                self.model,
+                handler.X_test,
+                handler.feature_cols,
+                fold_num=fold+1,
+                save_plot=False
+            )
+            
+            # Store final model for feature importance
+            if fold == 3:
+                self.final_model = self
+        
+        # Generate feature importance plot from final model
+        print("\nGenerating feature importance plot...")
+        self.final_model.plot_feature_importance(top_n=15)
+        
+        # Print summary statistics
+        class_0_f1, class_1_f1 = self.print_summary(handler)
+        
+        # Plot F1 scores
+        self.plot_f1_scores(class_0_f1, class_1_f1)
+        
+        # Generate cross-fold SHAP summary
+        print("\nGenerating cross-fold SHAP summary...")
+        shap_summary = self.shap_analyzer.generate_cross_fold_summary(save_plot=False)
+        
+        return handler, self.shap_analyzer
 
 def main():
-    """
-    Main execution function for the Random Forest classification pipeline.
-    
-    This function orchestrates the complete workflow:
-    1. Initialize data handling
-    2. Load and validate dataset
-    3. Execute cross-validation pipeline
-    4. Display comprehensive results
-    
-    The function serves as the entry point for running the Random Forest
-    classification analysis on lung cancer staging data.
-    """
     print("Random Forest Classification for Lung Cancer Stage Prediction")
     print("=" * 65)
     
-    # Initialize data handler
+    # Initialize Class Objects 
     handler = DataHandling()
     
     # Step 1: Load and validate data
-    print("Step 1: Data Loading and Integrity Checks")
+    print("\nStep 1: Data Loading and Integrity Checks")
     is_clean = handler.load_data()
     
     if not is_clean:
         print("\nDATA QUALITY ISSUES DETECTED! Results may be unreliable")
     
-    # Step 2: Execute pipeline with SHAP analysis for all folds
+    # Step 2: Execute cross-validation pipeline
     print("\nStep 2: Cross-Validation Pipeline with SHAP Analysis")
-    results = pipeline(handler)
+    cv = CrossValidation(handler)
+    results = cv.pipeline()
     
-    if results is None:
-        print("\nPipeline failed due to patient leakage!")
-        return
-    
-    handler, shap_analyzer = results
-    print("\nPipeline completed successfully with SHAP analysis for all folds!")
+    if results is not None:
+        handler, shap_analyzer = results
+        print("\nPipeline completed successfully with SHAP analysis for all folds!")
 
 if __name__ == "__main__":
     main()
